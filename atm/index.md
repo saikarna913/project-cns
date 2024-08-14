@@ -4,7 +4,7 @@ Programming Problem: ATM Protocol
 Summary
 -------
 
-Players will implement an ATM communication protocol.
+Students will implement an ATM communication protocol.
  There will be two programs.
  One program, called `atm`, will allow bank customers to withdraw and
 deposit money from their account.
@@ -153,7 +153,7 @@ Changes and Updates
 -------
 
 There will inevitably be changes to the specification 
-during the contest as unclear assumptions and mistakes
+during the semester as unclear assumptions and mistakes
 on our part are uncovered. We apologize in advance!
 
 All changes will be summarized at the top of this page. 
