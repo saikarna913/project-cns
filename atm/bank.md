@@ -1,4 +1,4 @@
-[Back](atm.md)
+[Back](index.md)
 
 bank
 ====
