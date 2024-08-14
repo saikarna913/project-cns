@@ -149,125 +149,33 @@ nothing should be output to ***stdout*** .
   unrecoverable errors not explicitly discussed, should prompt the
   program to exit with return code `255`.
   
-Oracle
-------
-
-We provide an _oracle_, or reference implementation. This
-implementation will be use to adjudicate correctness-related error
-reports submitted during the Break-it round -- in particular, if a
-submitted test fails on a particular submission, it must not fail on
-the oracle. (Bugs in the oracle are discussed below.)
-
-Contestants may query the oracle during the build-it round to clarify
-the expected behavior of the `atm` and `bank` programs. Queries are
-specified as a sequence of `atm` commands, submitted via the "Oracle
-submissions" link on the team participation page of the contest site.
-Here is an example query (this will make more sense if you read the
-specifications for the `atm` and `bank` programs first):
-
-	[ 
-		{"input":["-p", "%PORT%", "-i", "%IP%", "-a", "ted", "-n", "10.30"],"base64":false}, 
-		{"input":["-p", "%PORT%", "-i", "%IP%", "-a", "ted", "-d", "5.00"]}, 
-		{"input":["-p", "%PORT%", "-i", "%IP%", "-a", "ted", "-g"]},
-		{"input":["LXA=", "JVBPUlQl", "LWk=", "JUlQJQ==", "LWE=", "dGVk", "LWc="],"base64":true} 
-	]
-
-The oracle will provide outputs from the atm and bank. Here is an example for the previous query:
-
-	[
-		{
-			"bank": {
-				"output": {"initial_balance": 10.3,"account": "ted"}
-			},
-			"atm": {
-				"exit": 0,
-				"output": {"initial_balance": 10.3,"account": "ted"}
-			}
-		},
-		{
-			"bank": {
-				"output": {"deposit": 5,"account": "ted"
-				}
-			},
-			"atm": {
-				"exit": 0,
-				"output": {"deposit": 5,"account": "ted"}
-			}
-		},
-		{
-			"bank": {
-				"output": {"balance": 15.3,"account": "ted"}
-			},
-			"atm": {
-				"exit": 0,
-				"output": {"balance": 15.3,"account": "ted"}
-			}
-		},
-		{
-			"bank": {
-				"output": {"balance": 15.3,"account": "ted"}
-			},
-			"atm": {
-				"exit": 0,
-				"output": {"balance": 15.3,"account": "ted"}
-			}
-		}
-	]
-
-In general, a test must begin with account creation, so that the atm
-program creates a card file, which can be used on subsequent
-interactions. Though we have not shown it, you can also pass the
-cardfile explicitly during a test, i.e., using the `-c` option.
-
-The `bank` will run at a dynamically chosen IP address, listening on a
-dynamically chosen port. Since this information cannot be known when
-writing the query, you instead specify these values using the
-following variables:
-
-- `%IP%` - IP address of the `bank` server
-- `%PORT%` - TCP port of the `bank` server
-
-Each "input" is the argument list passed to `atm`. 
-Queries may specify inputs using base64-encoded values by by providing
-the optional boolean field `"base64"`. 
-
-
-Changes and Oracle Updates
+Changes and Updates
 -------
 
-There will inevitably be changes to the specification and oracle
-implementation during the contest as unclear assumptions and mistakes
+There will inevitably be changes to the specification 
+during the contest as unclear assumptions and mistakes
 on our part are uncovered. We apologize in advance!
 
-All changes will be summarized at the top of this page. Breaker teams will
-receive ([M/2](https://builditbreakit.org/details#scoring)) points for identifying bugs in the oracle implementation. 
-Points will only be awarded to the first
-breaker team that reports a particular bug. To report a bug in the oracle
-implementation, email us at
-[info@builditbreakit.org](mailto:info@builditbreakit.org) with a
-description of the bug, links to relevant oracle submissions on the
-contest website, your team name, and team id. 
+All changes will be summarized at the top of this page. 
 
 Build-it Round Submission
 -------------------------
 
 Each build-it team should
-initialize a git repository on either [github](https://github.com/) or
-[bitbucket](https://bitbucket.org/) or [gitlab](https://gitlab.com) and share it 
-with the `bibifi` user on those services. Create a directory 
-named `build` in the top-level directory of this repository and commit your code into that folder. Your 
-submission will be scored after every push to the repository. (Beware making your
-repository public, or other contestants might be able to see it!)
+initialize a git repository on [github](https://github.com/) and share it 
+with us. Create a directory 
+named `build` in the top-level directory of this repository and commit your code into that folder. 
+(Beware making your repository public, or others might be able to see it!)
 
-To score a submission, an automated system will first invoke `make` in the `build`
+To score a submission, we will first invoke `make` in the `build`
 directory of your submission. The only requirement on `make` is that it 
 must function without internet connectivity, and that it must return within 
-ten minutes. Moreover, it must be the case that your software is
+a few minutes. Moreover, it must be the case that your software is
 actually built, through initiation of make, from source (not including
 libraries you might use). Submitting binaries (only) is not acceptable.
 
 Once make finishes, `atm` and `bank` should be executable 
-files within the `build` directory. An automated system will invoke them with a 
+files within the `build` directory. We will invoke them with a 
 variety of options and measure their responses. 
 The executables must be able to be run from any working directory. 
 If your executables are bash scripts, you may find the following [resource](http://stackoverflow.com/questions/59895/can-a-bash-script-tell-what-directory-its-stored-in) helpful. 
@@ -285,25 +193,25 @@ Now set up the atm.
 
 	$ mkdir atmdir; cp bankdir/bank.auth atmdir/; mv atm atmdir/; cd atmdir
 
-Create an account 'bob' with balance $1000.00 (There are two outputs because one is from the `bank` which is running in the same shell).
+Create an account 'bob' with balance Rs. 1000.00 (There are two outputs because one is from the `bank` which is running in the same shell).
 
 	$ ./atm -s bank.auth -c bob.card -a bob -n 1000.00
 	{"account":"bob","initial_balance":1000}
 	{"account":"bob","initial_balance":1000}
 
-Deposit $100.
+Deposit Rs. 100.
 
 	$ ./atm -c bob.card -a bob -d 100.00
 	{"account":"bob","deposit":100}
 	{"account":"bob","deposit":100}
 
-Withdraw $63.10.
+Withdraw Rs. 63.10.
 
 	$ ./atm -c bob.card -a bob -w 63.10
 	{"account":"bob","withdraw":63.1}
 	{"account":"bob","withdraw":63.1}
 
-Attempt to withdraw $2000, which fails since 'bob' does not have a sufficient balance.
+Attempt to withdraw Rs. 2000, which fails since 'bob' does not have a sufficient balance.
 
 	$ ./atm -c bob.card -a bob -w 2000.00
 	$ echo $?
@@ -315,7 +223,7 @@ Attempt to create another account 'bob', which fails since the account 'bob' alr
 	$ echo $?
 	255
 
-Create an account 'alice' with balance $1500.
+Create an account 'alice' with balance Rs. 1500.
 
 	$ ./atm -a alice -n 1500.00
 	{"account":"alice","initial_balance":1500}
@@ -331,8 +239,8 @@ Bob attempts to access alice's balance with his card, which fails.
 
 In principle, the bank could accept transaction requests from multiple ATMs concurrently, if it chose to---there is no requirement that it must. 
 If it does, the order that these transactions take effect is non-deterministic, but atomic. 
-For example, if ATM #1 requested a deposit of $50 to Bob's account and ATM #2 requested a withdrawal of $25 from Bob's account, those two requests could take effect in either order, but when they complete Bob should always be $25 richer. 
+For example, if ATM #1 requested a deposit of Rs. 50 to Bob's account and ATM #2 requested a withdrawal of Rs. 25 from Bob's account, those two requests could take effect in either order, but when they complete Bob should always be Rs. 25 richer. 
 Note that an atomic transaction includes both changes/accesses to the balance and the corresponding I/O. 
 As such, the order of any printed statements about events must match the order the events actually took place.
 
-Keep in mind that the contest provides no way to test concurrent transactions. Tests are sequences of synchronous ATM commands. During the break-it round, tests also involve a "man in the middle" (MITM) which could introduce concurrency (see the description of the attacker model), but the MITM will never have direct access to the card file or auth file, so its ability to initiate concurrent transactions is more limited than the ATM.
+Tests are sequences of synchronous ATM commands. During the break-it round, tests also involve a "man in the middle" (MITM) which could introduce concurrency (see the description of the attacker model), but the MITM will never have direct access to the card file or auth file, so its ability to initiate concurrent transactions is more limited than the ATM.
