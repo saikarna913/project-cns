@@ -1,10 +1,10 @@
-[Back](SPEC.html)
+[Back](SPEC.md)
 
 logread
 =======
-`logread` queries the state of the gallery. It prints which employees and
-guests are in the gallery or its rooms, and allows for various
-time-based queries of the state of the gallery. The following
+`logread` queries the state of the campus. It prints which employees and
+guests are in the campus or its rooms, and allows for various
+time-based queries of the state of the campus. The following
 invocations *must* be supported:
 
     logread -K <token> -S <log>
@@ -18,13 +18,13 @@ The following invocation is *optional* (for extra contest points). If you do not
 As per the above invocations, only one of `-S`, `-R`, `-T`, or `-I` may be specified at once.
 
 In what follows, we refer to employees or visitors who are 'in the
-gallery'. Each person is expected to first enter the gallery (using
+campus'. Each person is expected to first enter the campus (using
 `logappend` option `-A`) prior to entering any particular room of the
-gallery. Once in the gallery, he or she may enter and leave various
+campus. Once in the campus, he or she may enter and leave various
 rooms (using `logappend` options `-A -R` and options `-L -R`,
-respectively). Finally, the person will leave the gallery (using `logappend`
+respectively). Finally, the person will leave the campus (using `logappend`
 option `-L`). During this whole sequence of events, a person is
-considered to be 'in the gallery'. See the [examples](EXAMPLES.html)
+considered to be 'in the campus'. See the [examples](EXAMPLES.html)
 for more information.
 
 When output elements are comma-separated lists, there will be no spaces before or after the commas.
@@ -35,9 +35,9 @@ authenticated with the token (i.e., it is not the same token that was used to cr
  * `-S` Print the current state of the log to stdout. The state should
    be printed to stdout on at least two lines, with lines separated by
    the `\n` (newline) character. The first line should be a
-   comma-separated list of employees currently in the gallery. The
+   comma-separated list of employees currently in the campus. The
    second line should be a comma-separated list of guests currently in
-   the gallery. The remaining lines should provide room-by-room
+   the campus. The remaining lines should provide room-by-room
    information indicating which guest or employee is in which
    room. Each line should begin with a room ID, printed as a decimal
    integer, followed by a colon, followed by a space, followed by a
@@ -45,11 +45,11 @@ authenticated with the token (i.e., it is not the same token that was used to cr
    printed in ascending integer order, all guest/employee names should
    be printed in ascending lexicographic string order. 
 
- * `-R` Give a list of all rooms entered by an employee or guest. Output the list of rooms in chronological order. If this argument is specified, either -E or -G must be specified. The list is printed to stdout in one comma-separated list of room identifiers. This list should include all rooms visited over the history of the log, regardless of how many separate visits the employee/guest has made to the gallery. If the specified employee or guest does not appear in the gallery log, then nothing is printed.
+ * `-R` Give a list of all rooms entered by an employee or guest. Output the list of rooms in chronological order. If this argument is specified, either -E or -G must be specified. The list is printed to stdout in one comma-separated list of room identifiers. This list should include all rooms visited over the history of the log, regardless of how many separate visits the employee/guest has made to the campus. If the specified employee or guest does not appear in the campus log, then nothing is printed.
 
- * `-T` Gives the total time spent in the gallery by an employee or guest, over the whole history of the log. If the employee or guest is currently in the gallery, include the time spent so far in this visit as well as total time spent in prior visits. Output is an integer on a single line. If the specified employee or guest does not appear in the gallery log, then nothing is printed. If an employee or guest enters at time 1 and leaves at time 10, the total time is 9 seconds. 
+ * `-T` Gives the total time spent in the campus by an employee or guest, over the whole history of the log. If the employee or guest is currently in the campus, include the time spent so far in this visit as well as total time spent in prior visits. Output is an integer on a single line. If the specified employee or guest does not appear in the campus log, then nothing is printed. If an employee or guest enters at time 1 and leaves at time 10, the total time is 9 seconds. 
 
- * `-I` Prints the rooms, as a comma-separated list of room IDs, that were occupied by all the specified employees and guests at the same time over the complete history of the gallery. Room IDs should be printed in ascending numerical order.  If a specified employee or guest does not appear in the gallery, it is ignored. If no room ever contained all of the specified persons, then nothing is printed. This feature is optional.
+ * `-I` Prints the rooms, as a comma-separated list of room IDs, that were occupied by all the specified employees and guests at the same time over the complete history of the campus. Room IDs should be printed in ascending numerical order.  If a specified employee or guest does not appear in the campus, it is ignored. If no room ever contained all of the specified persons, then nothing is printed. This feature is optional.
 
  * `-E` Employee name. May be specified multiple times when used with `-I`. 
 
