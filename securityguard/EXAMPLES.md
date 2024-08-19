@@ -7,7 +7,7 @@ Consider the following 4 invocations of `logappend` followed by an invocation of
     $ ./logappend -T 3 -K secret -A -E Fred -R 1 log1
     $ ./logappend -T 4 -K secret -A -G Jill -R 1 log1
 
-These commands have used the key *secret* to append 4 events to the log `log1`, recording the arrival of *Fred* and *Jill* in room *1* of the gallery. If `logread` is then used to print the state of the gallery, the following should be printed: 
+These commands have used the key *secret* to append 4 events to the log `log1`, recording the arrival of *Fred* and *Jill* in room *1* of the campus. If `logread` is then used to print the state of the campus, the following should be printed: 
 
     $ ./logread -K secret -S log1
     Fred
@@ -44,7 +44,7 @@ We can also use `logappend` in batch mode like so (on a fresh log `log2`):
     0
 
 The first two lines of the batch file are invalid since 0 is an invalid time so the first line fails. 
-Then the second line fails with `"invalid"` since John is not in the gallery. 
+Then the second line fails with `"invalid"` since John is not in the campus. 
 Here is a successful run with the time arguments fixed: 
 
     $ cat batch
