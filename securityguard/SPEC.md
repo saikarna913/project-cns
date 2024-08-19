@@ -24,12 +24,12 @@ Programs
 Your team will design a log format and implement both `logappend` and
 `logread` to use it. Each program's description is linked below.
 
- * The [`logappend`](LOGAPPEND.html) program appends data to a log 
- * The [`logread`](LOGREAD.html) program reads and queries data from the log 
+ * The [`logappend`](LOGAPPEND.md) program appends data to a log 
+ * The [`logread`](LOGREAD.md) program reads and queries data from the log 
 
 `logread` contains a number of features that are optional. If you do not implement an optional feature, be sure to **print `unimplemented` to standard output**. 
 
-Look at the page of [examples](EXAMPLES.html) for examples of using the `logappend` and `logread` tools together. 
+Look at the page of [examples](EXAMPLES.md) for examples of using the `logappend` and `logread` tools together. 
 
 Security Model
 --------------
