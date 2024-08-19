@@ -11,6 +11,13 @@ deposit money from their account.
  The other program, called `bank`, will run as a server that keeps
 track of customer balances.
 
+Deliverables
+------------
+You should submit:  
+
++ Your implementation, including all your code files and your makefile. Even though we will have access to your git repo (details below), you will submit a "final" version by creating a tag on it.
++ A **design document** (PDF) in which you describe your overall system design in sufficient detail for a reader to understand your approach without reading the source code directly. This must include a description of how the protocol runs.
+  
 Security Model
 --------------
 
@@ -163,7 +170,10 @@ Build-it Round Submission
 
 Each build-it team should
 initialize a git repository on [github](https://github.com/) and share it 
-with us. Create a directory 
+with us. 
+**You MUST NOT make your repository public; doing so will be treated as a violation of honor code.**
+
+Create a directory 
 named `build` in the top-level directory of this repository and commit your code into that folder. 
 (Beware making your repository public, or others might be able to see it!)
 
