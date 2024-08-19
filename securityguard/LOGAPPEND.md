@@ -1,4 +1,4 @@
-[Back](SPEC.html)
+[Back](SPEC.md)
 
 logappend
 =========
