@@ -31,20 +31,6 @@ Your team will design a log format and implement both `logappend` and
 
 Look at the page of [examples](EXAMPLES.md) for examples of using the `logappend` and `logread` tools together. 
 
-Security Model
---------------
-The system as a whole must guarantee the privacy and integrity of the log in
-the presence of an adversary that does not know the authentication token. This token
-is used by both the `logappend` and `logread` tools, specified on the command
-line. *Without knowledge of the token* an attacker should *not* be able to:
-
-* Query the logs via `logread` or otherwise learn facts
-  about the names of guests, employees, room numbers, or times by
-  inspecting the log itself
-* Modify the log via `logappend`. 
-* Fool `logread` or `logappend` into accepting a bogus file. In
-  particular, modifications made to the log by means other than correct use of `logappend` should be detected by (subsequent calls to) `logread` or `logappend` when the correct token is supplied
-
 Build Phase
 -----------
 Each team should initialize a git repository on [github](https://github.com/) and share it with us. 
