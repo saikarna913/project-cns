@@ -32,3 +32,6 @@
 [submodule "submissions/Security_Guard"]
 	path = submissions/Security_Guard
 	url = git@github.com:CS-431-CNS-Group-12/Security_Guard.git
+[submodule "submissions/Banking_System"]
+	path = submissions/Banking_System
+	url = git@github.com:YYashraj/Banking_System.git
