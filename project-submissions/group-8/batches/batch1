@@ -1,0 +1,4 @@
+-T 2 -K mysecret -A -E Charlie log4
+-T 3 -K mysecret -A -R 201 -E Charlie log4
+-T 4 -K mysecret -A -G Dave log4
+-T 5 -K mysecret -A -R 201 -G Dave log4

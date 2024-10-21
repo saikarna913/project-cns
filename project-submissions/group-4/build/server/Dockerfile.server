@@ -1,0 +1,82 @@
+# Use the official Ubuntu image as a base
+FROM ubuntu:20.04
+
+# Set non-interactive mode for apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libboost-all-dev \
+    libssl-dev \
+    cmake \
+    curl \
+    git \
+    mongodb \
+    && apt-get clean
+
+# Clone and install nlohmann/json
+RUN git clone https://github.com/nlohmann/json.git /nlohmann_json && \
+    cd /nlohmann_json && \
+    mkdir build && cd build && \
+    cmake -DJSON_BuildTests=OFF .. && \
+    make install && \
+    cd ../../ && \
+    rm -rf /nlohmann_json
+
+COPY ./mongo-cxx-driver-r3.10.1.tar.gz /
+
+# Download and install the MongoDB C++ driver
+RUN tar -xzf mongo-cxx-driver-r3.10.1.tar.gz && \
+    cd mongo-cxx-driver-r3.10.1 && \
+    cd build && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DMONGOCXX_OVERRIDE_DEFAULT_INSTALL_PREFIX=OFF && \
+    cmake --build . && \
+    cmake --build . --target install && \
+    cd ../../ && \
+    rm -rf mongo-cxx-driver-r3.10.1 mongo-cxx-driver.tar.gz
+
+RUN mkdir /app_server
+
+# Copy your server files
+COPY ./server.cpp /app_server
+COPY ./rootCA.crt /app_server
+COPY ./rootCA.key /app_server
+
+# Set working directory
+WORKDIR /app_server
+
+ENV LD_LIBRARY_PATH=/usr/local/lib
+
+# Generate the Server Private Key
+
+RUN openssl genrsa -out ./server.key 2048
+
+# Create a Certificate Signing Request (CSR) for the Server
+
+RUN openssl req -new -key ./server.key -out ./server.csr \
+  -subj "/C=IN/ST=Gujarat/L=Gandhinagar/O=MyServer/CN=localhost"
+
+# Sign the Server Certificate with the Root CA
+
+RUN openssl x509 -req -in server.csr -CA ./rootCA.crt -CAkey ./rootCA.key \
+  -CAcreateserial -out ./server.crt -days 365 -sha256
+
+# # # Compile the server
+RUN g++ --std=c++17 ./server.cpp \
+    -I/usr/local/include/mongocxx/v_noabi \
+    -I/usr/local/include/bsoncxx/v_noabi \
+    -I/usr/local/include/bsoncxx/v_noabi/bsoncxx/third_party/mnmlstc \
+    -I/usr/include \
+    -L/usr/lib \
+    -lmongocxx -lbsoncxx -lboost_system -lboost_thread -lssl -lcrypto -lpthread \
+    -o server
+
+EXPOSE 8051
+
+# Create the MongoDB data directory
+RUN mkdir -p /data/db && chown -R mongodb:mongodb /data/db
+
+# Command to run the server by default
+# CMD ["./server"]
+CMD mongod --fork --logpath /var/log/mongod.log --dbpath /data/db && ./server

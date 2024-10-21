@@ -1,0 +1,42 @@
+# Compiler
+CXX = g++
+
+# Compiler flags
+CXXFLAGS = -Wall -Wextra -std=c++11
+
+# Library paths
+JSON_LIB_PATH = /usr/lib/x86_64-linux-gnu
+SSL_LIB_PATH = /usr/lib/x86_64-linux-gnu  # Default path for OpenSSL libraries
+
+# Libraries
+LIBS = -ljsoncpp -lssl -lcrypto -lpthread # Use OpenSSL version 1.x libraries
+
+# Source files
+ATM_SRC = atm_final.cpp
+BANK_SRC = bank_final.cpp
+
+# Executables
+ATM = atm
+BANK = bank
+
+# Default target
+.PHONY: all clean
+all: $(ATM) $(BANK)
+
+# Build ATM
+$(ATM): $(ATM_SRC)
+	@echo "Building $(ATM)..."
+	$(CXX) $(CXXFLAGS) -o $@ $^ -L$(JSON_LIB_PATH) -L$(SSL_LIB_PATH) $(LIBS)
+	@echo "$(ATM) built successfully."
+
+# Build Bank
+$(BANK): $(BANK_SRC)
+	@echo "Building $(BANK)..."
+	$(CXX) $(CXXFLAGS) -o $@ $^ -L$(JSON_LIB_PATH) -L$(SSL_LIB_PATH) $(LIBS)
+	@echo "$(BANK) built successfully."
+
+# Clean build artifacts
+clean:
+	@echo "Cleaning up..."
+	rm -f $(ATM) $(BANK)
+	@echo "Cleanup complete."

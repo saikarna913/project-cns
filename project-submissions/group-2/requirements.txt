@@ -1,0 +1,9 @@
+altgraph==0.17.4
+bcrypt==4.2.0
+cffi==1.17.1
+cryptography==43.0.1
+packaging==24.1
+pycparser==2.22
+pyinstaller==6.11.0
+pyinstaller-hooks-contrib==2024.9
+setuptools==75.2.0

@@ -1,0 +1,29 @@
+name: banking_system
+
+services:
+  db:
+    image: postgres:16-alpine
+    expose:
+      - 5432
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${PG_USER}
+      - POSTGRES_PASSWORD=${PG_PASSWORD}
+      - POSTGRES_DB=${PG_DATABASE}
+
+  server:
+    depends_on:
+      - db
+    env_file:
+      - .env
+    build:
+      context: .
+      args:
+        - SERVER_PORT=${SERVER_PORT}
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+    volumes:
+      - ./certs:/tmp:rw
+    # environment:
+    #   - DATABASE_URL="postgresql+asyncpg://${PG_USER}:${PG_PASSWORD}@localhost:5432/${PG_DATABASE}"

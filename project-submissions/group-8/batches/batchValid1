@@ -1,0 +1,8 @@
+-T 27891234 -K token123 -E Alice -A log1
+-T 27891240 -K token123 -E Alice -R 101 -A log1
+-T 27891250 -K token123 -E Alice -R 101 -L log1
+-T 27891260 -K token123 -E Alice -L log1
+-T 27891270 -K token456 -G Bob -A log2
+-T 27891280 -K token456 -G Bob -R 202 -A log2
+-T 27891290 -K token456 -G Bob -R 202 -L log2
+-T 27891300 -K token456 -G Bob -L log2

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+poetry run python ./banking_system/atm.py $@
+
+# python3 ./banking_system/atm.py $@

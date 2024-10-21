@@ -1,0 +1,63 @@
+# Use an appropriate base image
+FROM ubuntu:20.04
+
+# Set non-interactive mode for apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libboost-all-dev \
+    libssl-dev \
+    cmake \
+    curl \
+    git \
+    && apt-get clean
+
+RUN mkdir /app_client
+
+# Copy your client files
+COPY ./logappend.cpp /app_client
+COPY ./logread.cpp /app_client
+COPY ./rootCA.crt /app_client
+COPY ./rootCA.key /app_client
+COPY ./batch /app_client
+
+# Set working directory
+WORKDIR /app_client
+
+ENV LD_LIBRARY_PATH=/usr/local/lib
+
+# Generate the Client Private Key
+
+RUN openssl genrsa -out ./client.key 2048
+
+# Create a Certificate Signing Request (CSR) for the Client
+
+RUN openssl req -new -key ./client.key -out ./client.csr \
+  -subj "/C=IN/ST=Gujarat/L=Gandhinagar/O=MyClient/CN=Client"
+
+# Sign the Client Certificate with the Root CA
+
+RUN openssl x509 -req -in ./client.csr -CA ./rootCA.crt -CAkey ./rootCA.key \
+  -CAcreateserial -out ./client.crt -days 365 -sha256
+
+
+# Compile the client applications
+RUN g++ -std=c++17 -o logappend ./logappend.cpp \
+    -I/usr/local/include/mongocxx/v_noabi \
+    -I/usr/local/include/bsoncxx/v_noabi \
+    -I/usr/local/include/bsoncxx/v_noabi/bsoncxx/third_party/mnmlstc \
+    -I/usr/include \
+    -L/usr/lib \
+    -lboost_system -lboost_thread -lssl -lcrypto -lpthread
+
+RUN g++ -std=c++17 -o logread ./logread.cpp \
+    -I/usr/local/include/mongocxx/v_noabi \
+    -I/usr/local/include/bsoncxx/v_noabi \
+    -I/usr/local/include/bsoncxx/v_noabi/bsoncxx/third_party/mnmlstc \
+    -I/usr/include \
+    -L/usr/lib \
+    -lboost_system -lboost_thread -lssl -lcrypto -lpthread
+
+CMD ["/bin/bash"]

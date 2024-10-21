@@ -1,0 +1,17 @@
+Options:
+
+    -h, Output usage information (ignores any other options passed along with it)
+    -s, To specify the path of authentication file of the ATM provided by the Bank (required)
+    -i, Specify the valid IPv4 address, default is 127.0.0.1
+    -p, Specify the valid port number. default is 3000
+    -c, To specify the path of the card file of the user provided by the ATM (required). [Format: /path/to/file/name.card] 
+        name must be specified everytime even when creating a new account. Special names "." and ".." are not allowed.
+    -a, Specity the Account Name in valid format.
+
+Required Modes: 
+
+    -n [...], Create a New Account with the Balance
+    -d [...], Specify Amount to Deposit
+    -w [...], Specify Valid Amount to Withdraw
+    -g,       Get Account Balance
+    

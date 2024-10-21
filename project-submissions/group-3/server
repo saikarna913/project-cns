@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# Default values
+SERVICE_NAME="server"
+FILES_TO_DELETE=("file1.txt" "file2.txt")  # Add the files you want to delete
+ENV_FILE=".env"  # Specify the .env file to modify
+SERVER_PORT=8000  # Default server port
+
+# Function to clean up
+cleanup() {
+    echo "Shutting down Docker Compose..."
+    docker compose down
+
+    # Delete specified files
+    for file in "${FILES_TO_DELETE[@]}"; do
+        if [ -f "$file" ]; then
+            echo "Deleting $file..."
+            rm -rf "$file"
+        fi
+    done
+
+    # Delete directories
+    delete_directories
+
+    exit 255
+}
+
+# Trap SIGINT (Ctrl+C) and call cleanup
+trap cleanup SIGINT SIGTERM
+
+# Function to display help
+display_help() {
+    echo "Usage: $0 [-p PORT]"
+    echo
+    echo "   -p PORT   Specify the server port number (default: 8000)"
+    echo "   -h        Show this help message"
+    exit 1
+}
+
+# Directories to delete
+DIRS_TO_DELETE=("cards" "auth" "certs")
+
+# Function to delete directories
+delete_directories() {
+    for dir in "${DIRS_TO_DELETE[@]}"; do
+        if [ -d "$dir" ]; then
+            rm -rf "$dir"
+        fi
+    done
+}
+
+delete_directories
+
+# Parse command-line arguments
+while getopts ":p:h" opt; do
+    case ${opt} in
+        p )
+            SERVER_PORT=$OPTARG
+            ;;
+        h )
+            display_help
+            ;;
+        \? )
+            echo "Invalid option: -$OPTARG" 1>&2
+            display_help
+            ;;
+    esac
+done
+
+# Validate the server port
+if ! [[ "$SERVER_PORT" =~ ^[0-9]+$ ]] || [ "$SERVER_PORT" -lt 1024 ] || [ "$SERVER_PORT" -gt 65535 ]; then
+    echo "Error: Port number must be an integer between 1024 and 65535."
+    exit 1
+fi
+
+# Update or add the SERVER_PORT in the .env file
+if grep -q "^SERVER_PORT=" "$ENV_FILE"; then
+    # If SERVER_PORT exists, replace its value
+    echo "Updating SERVER_PORT in $ENV_FILE..."
+    sed -i.bak "s/^SERVER_PORT=.*/SERVER_PORT=$SERVER_PORT/" "$ENV_FILE"
+else
+    # If SERVER_PORT does not exist, append it to the end of the file
+    echo "Adding SERVER_PORT to $ENV_FILE..."
+    echo "SERVER_PORT=$SERVER_PORT" >> "$ENV_FILE"
+fi
+
+# Bring up the services
+echo "Starting Docker Compose services on port $SERVER_PORT..."
+docker compose up -d --build
+
+# Show logs for the specified service in real time
+echo "Showing logs for service: $SERVICE_NAME"
+echo "Server is running on https://localhost:$SERVER_PORT"
+docker compose logs -f "$SERVICE_NAME"
+
+# Wait for background processes (if any) to complete
+wait

@@ -1,0 +1,10 @@
+# Ignore the virtual environment directory
+.venv
+
+# You can also ignore other files and directories if needed
+.git
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.lock

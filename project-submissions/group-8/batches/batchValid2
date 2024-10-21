@@ -1,0 +1,4 @@
+-T 1 -K secret -A -E Fred log1
+-T 2 -K secret -A -G Jill log1
+-T 3 -K secret -A -E Fred -R 1 log1
+-T 4 -K secret -A -G Jill -R 1 log1

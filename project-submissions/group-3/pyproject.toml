@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "banking-system"
+version = "0.1.0"
+description = ""
+authors = ["Naman-Dharmani <dharmaninaman@iitgn.ac.in>", "Srujan Shetty <shettysrujan@iitgn.ac.in>", "Sahil Das <dassahil@iitgn.ac.in>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+fastapi = "^0.115.0"
+sqlalchemy = "^2.0.35"
+asyncpg = "^0.29.0"
+uvicorn = "^0.30.6"
+greenlet = "^3.1.1"
+python-dotenv = "^1.0.1"
+pydantic = "^2.9.2"
+pyjwt = "^2.9.0"
+cryptography = "^43.0.1"
+requests = "^2.32.3"
+slowapi = "^0.1.9"
+passlib = "^1.7.4"
+pyyaml = "^6.0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
