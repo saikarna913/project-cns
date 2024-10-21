@@ -1,3 +1,7 @@
 [submodule "submissions/CNS_Security-Guard-at-IITGN"]
 	path = submissions/CNS_Security-Guard-at-IITGN
 	url = git@github.com:MallikaChouhan/CNS_Security-Guard-at-IITGN.git
+[submodule "submissions/CS431_Project"]
+	path = submissions/CS431_Project
+	url = git@github.com:Hit2737/CS431_Project.git
+	branch = remotes/origin/submission
