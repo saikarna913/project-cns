@@ -17,9 +17,6 @@
 [submodule "submissions/cs431_sc_g4"]
 	path = submissions/cs431_sc_g4
 	url = git@github.com:dkshjn/cs431_sc_g4.git
-[submodule "submissions/CNS_group_1"]
-	path = submissions/CNS_group_1
-	url = git@github.com:heerkubadia/CNS_group_1.git
 [submodule "submissions/CS431-Project-8-SecurityGuard"]
 	path = submissions/CS431-Project-8-SecurityGuard
 	url = git@github.com:Demolus13/CS431-Project-8-SecurityGuard.git
