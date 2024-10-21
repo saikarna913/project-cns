@@ -5,3 +5,30 @@
 	path = submissions/CS431_Project
 	url = git@github.com:Hit2737/CS431_Project.git
 	branch = remotes/origin/submission
+[submodule "submissions/CNS_Project_Security_Guard"]
+	path = submissions/CNS_Project_Security_Guard
+	url = git@github.com:Shr-Agr/CNS_Project_Security_Guard.git
+[submodule "submissions/CNS_Group_9"]
+	path = submissions/CNS_Group_9
+	url = git@github.com:Destructor169/CNS_Group_9.git
+[submodule "submissions/SecureATM_Group11"]
+	path = submissions/SecureATM_Group11
+	url = git@github.com:arpan004/SecureATM_Group11.git
+[submodule "submissions/cs431_sc_g4"]
+	path = submissions/cs431_sc_g4
+	url = git@github.com:dkshjn/cs431_sc_g4.git
+[submodule "submissions/CNS_group_1"]
+	path = submissions/CNS_group_1
+	url = git@github.com:heerkubadia/CNS_group_1.git
+[submodule "submissions/CS431-Project-8-SecurityGuard"]
+	path = submissions/CS431-Project-8-SecurityGuard
+	url = git@github.com:Demolus13/CS431-Project-8-SecurityGuard.git
+[submodule "submissions/CNS-G5"]
+	path = submissions/CNS-G5
+	url = git@github.com:AshStorm17/CNS-G5.git
+[submodule "submissions/securityguard-project-10"]
+	path = submissions/securityguard-project-10
+	url = git@github.com:rovin99/securityguard-project-10.git
+[submodule "submissions/Security_Guard"]
+	path = submissions/Security_Guard
+	url = git@github.com:CS-431-CNS-Group-12/Security_Guard.git
