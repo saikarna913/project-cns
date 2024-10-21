@@ -32,6 +32,3 @@
 [submodule "submissions/Banking_System"]
 	path = submissions/Banking_System
 	url = git@github.com:YYashraj/Banking_System.git
-[submodule "submissions/CNS_group_1"]
-	path = submissions/CNS_group_1
-	url = git@github.com:heerkubadia/CNS_group_1.git
