@@ -2,38 +2,45 @@ import argparse
 import os
 import sys
 from cryptography.fernet import Fernet
+import bcrypt
+import base64
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 
-# Function to load the encryption key from a file
-def load_key():
-    try:
-        return open("secret.key", "rb").read()
-    except FileNotFoundError:
-        print("First do the setup.")
-        return None  # Optionally return None or handle the error as needed
+# Function to derive the encryption key from the password
+def derive_key_from_password(password: str, salt: bytes) -> bytes:
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+    return key
 
-# Function to encrypt a log entry
-def encrypt_entry(entry, key):
-    cipher_suite = Fernet(key)
-    encrypted_entry = cipher_suite.encrypt(entry.encode())
-    return encrypted_entry.decode()
+# Function to load the hashed password from the log file
+def load_hashed_password(log):
+    with open(log, 'rb') as f:
+        hashed_password = f.readline().strip()
+    return hashed_password
 
 # Function to authenticate users based on the token in the log file
-def authenticate(log, auth_token, key):
-    if os.path.exists(log):
-        with open(log, 'r') as f:
-            encrypted_token = f.readline().strip()
-            cipher_suite = Fernet(key)
-            correct_token = cipher_suite.decrypt(encrypted_token.encode()).decode()
-            return correct_token == auth_token
+def authenticate(log, auth_token):
+    hashed_password = load_hashed_password(log)
+    if bcrypt.checkpw(auth_token.encode(), hashed_password):
+        return True
     else:
-        raise FileNotFoundError("File with the name provided does not exist. Make sure you have done the setup first.")
-    
+        return False
+
 # Function to append a new log entry (encrypted)
 def append_log(log, timestamp, entry, key):
     try:
-        encrypted_entry = encrypt_entry(f"{timestamp}, {entry}", key)
+        cipher_suite = Fernet(key)
+        encrypted_entry = cipher_suite.encrypt(f"{timestamp}, {entry}".encode())
         with open(log, 'a') as f:
-            f.write(encrypted_entry + "\n")
+            f.write(encrypted_entry.decode() + "\n")
     except Exception as e:
         print("Error appending log entry.")
 
@@ -41,7 +48,7 @@ def append_log(log, timestamp, entry, key):
 def validate_log(log, timestamp, user, role, key):
     if not os.path.exists(log):
         return True, None  # If the log does not exist, it's valid
-    
+
     cipher_suite = Fernet(key)
     with open(log, 'r') as f:
         lines = f.readlines()[1:]  # Skip the first line (token)
@@ -58,17 +65,45 @@ def validate_log(log, timestamp, user, role, key):
                     last_timestamp = event_timestamp # Update the last timestamp found
                 if entry[2] == user and entry[1] == role:
                     last_event_info = (entry[3], entry[4])  # (event type, room)
+
         # Ensure the new timestamp is greater than the last timestamp
         if int(timestamp) <= last_timestamp:
             return False, None
         return True, last_event_info  # If found, return last event info
 
-# Function to handle batch file processing
+# Function to check entry and exit restrictions
+def check_entry_exit_restrictions(current_room, args):
+    if args.A:  # Arrival event
+        if current_room == 'None' and args.R is None:
+            return True, None
+        if current_room == 'campus' and args.R is not None:
+            return True, None
+        if current_room != 'campus' and args.R is not None:
+            return False, "invalid: Are you on campus? You must leave the room first before entering another room."
+        if current_room != 'campus' and args.R is None:
+            return False, "invalid: You are in a room. First leave the room."
+        if current_room == 'campus' and args.R is None:
+            return False, "invalid: Already on campus."
+    elif args.L:  # Departure event
+        if current_room == 'campus' and args.R is None:
+            return True, None
+        if current_room != 'campus' and args.R is None:
+            return False, "invalid: Either first leave the room or You have already left the campus."
+        if current_room == args.R and args.R is not None:
+            return True, None
+        if current_room != 'campus' and args.R is not None:
+            return False, "invalid: Leave the room you are in first."
+        if current_room != args.R and args.R is not None:
+            return False, "invalid: Must have been in the room to leave it."
+
+    return True, None
+
+# Function to process a batch file
 def process_batch_file(batch_file):
     if not os.path.exists(batch_file):
         print("invalid: Batch file does not exist.")
         sys.exit(255)
-    
+
     with open(batch_file, 'r') as f:
         line_number = 0  # Track line numbers for better error reporting
         for line in f:
@@ -84,8 +119,6 @@ def process_batch_file(batch_file):
 # Main function to process command-line arguments and append log entry
 def process_args(args=None):
     parser = argparse.ArgumentParser(description="Append new log entry.")
-    
-    # Command-line arguments
     parser.add_argument("-T", required=True, type=int, help="Timestamp for the event")
     parser.add_argument("-K", required=True, help="Authentication token")
     parser.add_argument("-E", help="Employee name")
@@ -95,13 +128,11 @@ def process_args(args=None):
     parser.add_argument("-R", type=str, help="Room ID")
     parser.add_argument("log", help="Path to the log file")
 
-    # Parse the arguments
     args = parser.parse_args(args)
 
-    # Ensure the timestamp is not zero
     if args.T == 0:
         raise ValueError("Timestamp cannot be zero.")
-    
+
     # Ensure that the room ID is an integer between 0 and 1,073,741,823
     if args.R is not None:
         try:
@@ -110,33 +141,24 @@ def process_args(args=None):
                 raise ValueError("Invalid Room Number")
         except ValueError:
             raise ValueError("Invalid Room Number")
-        
+ 
     # Ensure only one of -E or -G is specified
     if (args.E and args.G) or (not args.E and not args.G):
         raise ValueError("Specify either -E for employee or -G for guest, not both.")
-    
-    # Ensure only one of -A or -L is specified
+
     if not (args.A or args.L):
         raise ValueError("One of -A (arrival) or -L (departure) must be specified.")
-        
+
     if args.A and args.L:
         raise ValueError("Specify either -A for arrival or -L for departure, not both.")
 
-    # Load encryption key
-    key = load_key()
-    if key is None:
-        return  # Exit if key loading failed
-    key = 'cjwLeVHhTx7PWUEGJVpYiPVRDUrPORnupX7TZED7w/Q='
+    if not authenticate(args.log, args.K):
+        raise ValueError("Authentication failed.")
 
-    # Authenticate based on the token in the log file
-    try:
-        if not authenticate(args.log, args.K, key):
-            raise ValueError("Authentication failed.")
-    except FileNotFoundError:
-        print("Log file does not exist. Please run setup first.")
-        return  # Exit the function after printing the message
+    hashed_password = load_hashed_password(args.log)
+    salt = hashed_password[:16]  # Use the first 16 bytes of the hashed password as the salt
+    key = derive_key_from_password(args.K, salt)
 
-    # Validate log and get the last event for this user
     user = args.E if args.E else args.G
     role = "employee" if args.E else "guest"
     is_valid, last_event = validate_log(args.log, args.T, user, role, key)
@@ -160,58 +182,18 @@ def process_args(args=None):
     if not is_allowed:
         raise ValueError(error_message)
 
-    # Construct the log entry
-    if args.E:
-        name = args.E
-        user_type = "employee"
-    else:
-        name = args.G
-        user_type = "guest"
+    event = f"{role}, {user}, {'arrival' if args.A else 'departure'}, {args.R if args.R is not None else 'campus'}"
 
-    event = f"{user_type}, {name}, {'arrival' if args.A else 'departure'}, {args.R if args.R is not None else 'campus'}"
-
-    # Append the log (encrypted)
     append_log(args.log, args.T, event, key)
     print("Log entry added successfully.")
 
-
-
-def check_entry_exit_restrictions(current_room, args):
-    if args.A:  # Arrival event
-        if current_room == 'None' and args.R is None:
-            return True, None
-        if current_room == 'campus' and args.R is not None:
-            return True, None
-        if current_room != 'campus' and args.R is not None:
-            return False, "invalid: Are you on campus? You must leave the room first before entering another room."
-        if current_room != 'campus' and args.R is None:
-            return False, "invalid: You are in a room. First leave the room."
-        if current_room == 'campus' and args.R is None:
-            return False, "invalid: Already on campus."
-       
-    elif args.L:  # Departure event
-        if current_room == 'campus' and args.R is None:
-            return True, None
-        if current_room != 'campus' and args.R is None:
-            return False, "invalid: Either first leave the room or You have already left the campus."
-        if current_room == args.R and args.R is not None:
-            return True, None
-        if current_room != 'campus' and args.R is not None:
-            return False, "invalid: Leave the room you are in first."
-        if current_room != args.R and args.R is not None:
-            return False, "invalid: Must have been in the room to leave it."
-    
-    return True, None
-
-# Entry point for the script
 if __name__ == "__main__":
     try:
-        # Check for batch mode
         if "-B" in os.sys.argv:
             batch_index = os.sys.argv.index("-B") + 1
             batch_file = os.sys.argv[batch_index]
             process_batch_file(batch_file)
         else:
-            process_args()   
+            process_args()
     except Exception as e:
-        print(f"Error: {str(e)}")  # Print only the error message
+        print(f"Error: {str(e)}")

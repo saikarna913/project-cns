@@ -1,32 +1,44 @@
 import argparse
 import os
 from cryptography.fernet import Fernet
+import bcrypt
+import base64
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 
-# Function to load the encryption key from a file
-def load_key():
-    try:
-        return open("secret.key", "rb").read()
-    except FileNotFoundError:
-        print("First do the setup")
-        return None  # Optionally return None or handle the error as needed
+# Function to derive the encryption key from the password
+def derive_key_from_password(password: str, salt: bytes) -> bytes:
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+    return key
+
+# Function to load the hashed password from the log file
+def load_hashed_password(log):
+    with open(log, 'rb') as f:
+        hashed_password = f.readline().strip()
+    return hashed_password
+
+# Function to authenticate the log based on the token
+def authenticate(log, auth_token):
+    hashed_password = load_hashed_password(log)
+    if bcrypt.checkpw(auth_token.encode(), hashed_password):
+        return True
+    else:
+        print("Authentication failed: Incorrect token.")
+        return False
 
 # Function to decrypt a log entry
 def decrypt_entry(entry, key):
     cipher_suite = Fernet(key)
     decrypted_entry = cipher_suite.decrypt(entry.encode())
     return decrypted_entry.decode()
-
-# Function to authenticate the log based on the token
-def authenticate(log, auth_token, key):
-    if os.path.exists(log):
-        with open(log, 'r') as f:
-            encrypted_token = f.readline().strip()
-            cipher_suite = Fernet(key)
-            correct_token = cipher_suite.decrypt(encrypted_token.encode()).decode()
-            return correct_token == auth_token
-    else:
-        print(f"Log file '{log}' does not exist.")
-        return False
 
 # Function to calculate total time spent by an employee/guest in the campus
 def calculate_total_time(log, name, entity_type, key):
@@ -124,7 +136,7 @@ def print_state(employees, guests, rooms):
     for room_id in sorted(rooms.keys(), key=int):
         print(f"{room_id}: {','.join(sorted(rooms[room_id]))}")
 
-# New function to list all rooms entered by an employee or guest
+# Function to list all rooms entered by an employee or guest
 def list_rooms(log, name, entity_type, key):
     rooms_visited = []
 
@@ -146,7 +158,7 @@ def list_rooms(log, name, entity_type, key):
 
     return rooms_visited
 
-# New function to list rooms occupied by all specified employees and guests at the same time
+# Function to list rooms occupied by all specified employees and guests at the same time
 def list_common_rooms(log, names, key):
     room_occupancy = {}
     common_rooms = set()
@@ -182,8 +194,6 @@ def list_common_rooms(log, names, key):
 # Main function to process command-line arguments and query the log
 def process_args(args=None):
     parser = argparse.ArgumentParser(description="Read campus log.")
-
-    # Command-line arguments
     parser.add_argument("-K", required=True, help="Authentication token")
     parser.add_argument("-S", action="store_true", help="Print state of campus")
     parser.add_argument("-T", action="store_true", help="Calculate total time spent")
@@ -195,16 +205,13 @@ def process_args(args=None):
 
     args = parser.parse_args(args)
 
-    # Load encryption key
-    key = load_key()
-    if key is None:
-        return  # Exit if key loading failed
-    key = 'cjwLeVHhTx7PWUEGJVpYiPVRDUrPORnupX7TZED7w/Q=' # Dummy Key
-
-    # Authenticate the token
-    if not authenticate(args.log, args.K, key):
+    if not authenticate(args.log, args.K):
         print("Integrity violation")
-        return  # Exit without an error code
+        return
+
+    hashed_password = load_hashed_password(args.log)
+    salt = hashed_password[:16]  # Use the first 16 bytes of the hashed password as the salt
+    key = derive_key_from_password(args.K, salt)
 
     # Process -S: Print state of the campus
     if args.S:
@@ -219,7 +226,7 @@ def process_args(args=None):
             total_time = calculate_total_time(args.log, args.G[0], "guest", key)
         else:
             print("Error: Specify either -E for employee or -G for guest.")
-            return  # Exit without an error code
+            return
 
         if total_time > 0:
             print(total_time)
@@ -232,7 +239,7 @@ def process_args(args=None):
             rooms_visited = list_rooms(args.log, args.G[0], "guest", key)
         else:
             print("Error: Specify either -E for employee or -G for guest.")
-            return  # Exit without an error code
+            return
 
         if rooms_visited:
             print(",".join(rooms_visited))
@@ -247,12 +254,11 @@ def process_args(args=None):
 
         if not names:
             print("Error: Specify at least one -E for employee or -G for guest.")
-            return  # Exit without an error code
+            return
 
         common_rooms = list_common_rooms(args.log, names, key)
         if common_rooms:
             print(",".join(common_rooms))
 
-# Entry point for the script
 if __name__ == "__main__":
     process_args()
