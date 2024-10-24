@@ -150,25 +150,18 @@ private:
 
             // Read the salt first
             file.read(reinterpret_cast<char*>(salt), sizeof(salt));
-
-            // Now derive the key using this salt
             deriveKey();
-
 
             char magic[8];
             uint32_t version;
             file.read(magic, 8);
             file.read(reinterpret_cast<char*>(&version), sizeof(version));
-            
             file.read(reinterpret_cast<char*>(iv), sizeof(iv));
 
             // Read the rest of the file
             std::vector<unsigned char> encrypted_content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
-            if (encrypted_content.size() < 16) {
-                // The file is too small to contain valid data
-                return false;
-            }
+            if (encrypted_content.size() < 16) return false;
 
             // The last 16 bytes are the tag
             unsigned char tag[16];
@@ -192,31 +185,51 @@ private:
             int ret = EVP_DecryptFinal_ex(ctx, decrypted_content.data() + len, &len);
             EVP_CIPHER_CTX_free(ctx);
 
-            if (ret > 0) {
-                plaintext_len += len;
-                decrypted_content.resize(plaintext_len);
-
-                // Parse the decrypted content
-                std::string decrypted_str(decrypted_content.begin(), decrypted_content.end());
-                std::istringstream iss(decrypted_str);
-                std::string line;
-                events.clear();
-                inCampus.clear();
-                currentRoom.clear();
-                while (std::getline(iss, line)) {
-                    Event event(0, "", "", false, false);
-                    std::istringstream line_iss(line);
-                    line_iss >> event.timestamp >> event.token >> event.name >> event.isEmployee >> event.isArrival >> event.roomId;
-                    if (events.empty()) {
-                        validToken = event.token;
-                    }
-                    events.push_back(event);
-                    updateState(event);
-                }
-                return true;
+            if (ret <= 0) {
+                // Decryption failed - likely wrong token
+                std::cout << "invalid" << std::endl;
+                exit(255);
             }
-            return false;
+
+            plaintext_len += len;
+            decrypted_content.resize(plaintext_len);
+
+            // Parse the decrypted content
+            std::string decrypted_str(decrypted_content.begin(), decrypted_content.end());
+            std::istringstream iss(decrypted_str);
+            std::string line;
+            events.clear();
+            inCampus.clear();
+            currentRoom.clear();
+
+            // Read first event to establish valid token
+            if (std::getline(iss, line)) {
+                Event event(0, "", "", false, false);
+                std::istringstream line_iss(line);
+                line_iss >> event.timestamp >> event.token >> event.name >> event.isEmployee >> event.isArrival >> event.roomId;
+                validToken = event.token;
+                
+                // Check if current token matches the file's token
+                if (token != validToken) {
+                    std::cout << "invalid" << std::endl;
+                    exit(255);
+                }
+                
+                events.push_back(event);
+                updateState(event);
+            }
+
+            // Read remaining events
+            while (std::getline(iss, line)) {
+                Event event(0, "", "", false, false);
+                std::istringstream line_iss(line);
+                line_iss >> event.timestamp >> event.token >> event.name >> event.isEmployee >> event.isArrival >> event.roomId;
+                events.push_back(event);
+                updateState(event);
+            }
+            return true;
         }
+
     bool readLog() {
         std::ifstream file(logFile);
         if (!file) return true; // It's okay if the file doesn't exist yet
