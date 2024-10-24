@@ -44,7 +44,7 @@ def append_log(log, timestamp, entry, key):
     except Exception as e:
         print("Error appending log entry.")
 
-# Function to validate the log state and get the last event for a user
+# Function to check the log state for consistency and last entry status
 def validate_log(log, timestamp, user, role, key):
     if not os.path.exists(log):
         return True, None  # If the log does not exist, it's valid
@@ -62,7 +62,7 @@ def validate_log(log, timestamp, user, role, key):
             if len(entry) >= 5:  # Ensure sufficient entry length
                 event_timestamp = int(entry[0])
                 if event_timestamp > last_timestamp:
-                    last_timestamp = event_timestamp  # Update the last timestamp found
+                    last_timestamp = event_timestamp # Update the last timestamp found
                 if entry[2] == user and entry[1] == role:
                     last_event_info = (entry[3], entry[4])  # (event type, room)
 
@@ -133,6 +133,7 @@ def process_args(args=None):
     if args.T == 0:
         raise ValueError("Timestamp cannot be zero.")
 
+    # Ensure that the room ID is an integer between 0 and 1,073,741,823
     if args.R is not None:
         try:
             room_id = int(args.R)
@@ -140,7 +141,8 @@ def process_args(args=None):
                 raise ValueError("Invalid Room Number")
         except ValueError:
             raise ValueError("Invalid Room Number")
-
+ 
+    # Ensure only one of -E or -G is specified
     if (args.E and args.G) or (not args.E and not args.G):
         raise ValueError("Specify either -E for employee or -G for guest, not both.")
 
