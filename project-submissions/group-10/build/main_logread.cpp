@@ -225,7 +225,9 @@ void deriveKey() {
         return sorted;
     }
     // Print the current state of the campus
-  void printCurrentState() {
+ 
+=======
+   void printCurrentState() {
     std::set<std::string> employees;
     std::set<std::string> guests;
     std::map<int, std::set<std::string>> rooms;
