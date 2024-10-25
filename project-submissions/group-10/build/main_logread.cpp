@@ -225,31 +225,46 @@ void deriveKey() {
         return sorted;
     }
     // Print the current state of the campus
-    void printCurrentState() {
-        std::set<std::string> employees, guests;
-        std::map<int, std::set<std::string>> rooms;
+   void printCurrentState() {
+    std::set<std::string> employees;
+    std::set<std::string> guests;
+    std::map<int, std::set<std::string>> rooms;
 
-        for (const auto& pair : inCampus) {
-            if (pair.second) {
-                if (pair.first[0] == 'E') {
-                    employees.insert(pair.first.substr(2));
-                } else {
-                    guests.insert(pair.first.substr(2));
-                }
+    // Separate employees and guests on campus
+    for (const auto& pair : inCampus) {
+        if (pair.second) { // Only include people currently in campus
+            if (pair.first[0] == 'E') {
+                employees.insert(pair.first.substr(2)); // Strip prefix for display
+            } else {
+                guests.insert(pair.first.substr(2)); // Strip prefix for display
             }
         }
-
-        for (const auto& pair : currentRoom) {
-            rooms[pair.second].insert(pair.first.substr(2));
-        }
-
-        std::cout << join(sortedNames(employees), ",") << std::endl;
-        std::cout << join(sortedNames(guests), ",") << std::endl;
-
-        for (const auto& room : rooms) {
-            std::cout << room.first << ": " << join(sortedNames(room.second), ",") << std::endl;
-        }
     }
+
+    // Organize room occupancy
+    for (const auto& pair : currentRoom) {
+        rooms[pair.second].insert(pair.first); // Use full identifier for sorting
+    }
+
+    // Print employees and guests on campus
+    std::cout << join(sortedNames(employees), ",") << std::endl;
+    std::cout << join(sortedNames(guests), ",") << std::endl;
+
+    // Print room-by-room occupancy
+    for (const auto& room : rooms) {
+        std::cout << room.first << ": ";
+        std::vector<std::string> occupants;
+        
+        for (const auto& person : room.second) {
+            // Display as "Employee Name" or "Guest Name" without the E:/G: prefix
+            std::string displayName = (person[0] == 'E' ? "" : "") + person.substr(2);
+            occupants.push_back(displayName);
+        }
+
+        // Join occupants' display names by comma for each room line
+        std::cout << join(occupants, ", ") << std::endl;
+    }
+}
     // Print the room history for a specific person
     void printRoomHistory(const std::string& name, bool isEmployee) {
             if (!nameExists(name, isEmployee)) {
