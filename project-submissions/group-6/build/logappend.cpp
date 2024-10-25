@@ -403,7 +403,7 @@ int main(int argc, char *argv[])
                         // Extract the fields from the log line
                         ss >> T >> timestamp >> K >> token >> E >> employee >> G >> guest >> R >> roomId >> A >> a_flag_str >> L >> l_flag_str;
                         // Convert A_flag and L_flag from string to boolean
-                        if (employee == personName || guest == personName)
+                        if ((employee == personName && data.E != nullptr) || (guest == personName && data.G != nullptr ))
                         {
                             A_flag = (a_flag_str == "true");
                             // L_flag = (l_flag_str == "true");
@@ -713,7 +713,7 @@ int main(int argc, char *argv[])
                     // Extract the fields from the log line
                     ss >> T >> timestamp >> K >> token >> E >> employee >> G >> guest >> R >> roomId >> A >> a_flag_str >> L >> l_flag_str;
                     // Convert A_flag and L_flag from string to boolean
-                    if (employee == personName || guest == personName)
+                    if ((employee == personName && data.E != nullptr) || (guest == personName && data.G != nullptr ))
                     {
                         A_flag = (a_flag_str == "true");
                         // L_flag = (l_flag_str == "true");
