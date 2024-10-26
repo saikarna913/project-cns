@@ -363,6 +363,51 @@ private:
             return true;
         }
     };
+    bool safe_stol(const char* str, long& result) {
+        try {
+            char* endptr;
+            result = std::strtol(str, &endptr, 10);
+            
+            // Check if conversion was successful and the entire string was used
+            if (*endptr != '\0' || endptr == str) {
+                return false;
+            }
+            
+            // Check for overflow/underflow
+            if (result == std::numeric_limits<long>::max() || 
+                result == std::numeric_limits<long>::min()) {
+                return false;
+            }
+            
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Function to safely convert string to int
+    bool safe_stoi(const char* str, int& result) {
+        try {
+            char* endptr;
+            long temp = std::strtol(str, &endptr, 10);
+            
+            // Check if conversion was successful and the entire string was used
+            if (*endptr != '\0' || endptr == str) {
+                return false;
+            }
+            
+            // Check if the value fits in an int
+            if (temp > std::numeric_limits<int>::max() || 
+                temp < std::numeric_limits<int>::min()) {
+                return false;
+            }
+            
+            result = static_cast<int>(temp);
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
 
     // Processes a batch file containing multiple log entries
     bool processBatchFile(const std::string& batchFile) {
@@ -449,6 +494,7 @@ private:
     }
 
 // Main function: Handles command-line arguments and executes the appropriate action
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cout << "invalid" << std::endl;
@@ -465,19 +511,15 @@ int main(int argc, char* argv[]) {
 
     long timestamp = 0;
     std::string token, name, logFile;
-    bool isEmployee = false, isArrival = false;
+    bool isEmployee = false, isGuest = false;
+    bool isArrival = false, isLeaving = false;
     int roomId = -1;
+    bool hasName = false;
 
     try {
         for (int i = 1; i < argc; ++i) {
             if (strcmp(argv[i], "-T") == 0) {
-                if (i + 1 >= argc) {
-                    std::cout << "invalid" << std::endl;
-                    return 255;
-                }
-                try {
-                    timestamp = std::stol(argv[++i]);
-                } catch (const std::exception&) {
+                if (i + 1 >= argc || !safe_stol(argv[++i], timestamp)) {
                     std::cout << "invalid" << std::endl;
                     return 255;
                 }
@@ -490,59 +532,62 @@ int main(int argc, char* argv[]) {
                 token = argv[++i];
             }
             else if (strcmp(argv[i], "-E") == 0) {
-                if (i + 1 >= argc) {
+                if (i + 1 >= argc || isGuest) {
                     std::cout << "invalid" << std::endl;
                     return 255;
                 }
                 name = argv[++i];
                 isEmployee = true;
+                hasName = true;
             }
             else if (strcmp(argv[i], "-G") == 0) {
-                if (i + 1 >= argc) {
+                if (i + 1 >= argc || isEmployee) {
                     std::cout << "invalid" << std::endl;
                     return 255;
                 }
                 name = argv[++i];
-                isEmployee = false;
+                isGuest = true;
+                hasName = true;
             }
             else if (strcmp(argv[i], "-A") == 0) {
+                if (isLeaving) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
                 isArrival = true;
             }
             else if (strcmp(argv[i], "-L") == 0) {
-                isArrival = false;
+                if (isArrival) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
+                isLeaving = true;
             }
             else if (strcmp(argv[i], "-R") == 0) {
-                if (i + 1 >= argc) {
-                    std::cout << "invalid" << std::endl;
-                    return 255;
-                }
-                try {
-                    roomId = std::stoi(argv[++i]);
-                } catch (const std::exception&) {
+                if (i + 1 >= argc || !safe_stoi(argv[++i], roomId)) {
                     std::cout << "invalid" << std::endl;
                     return 255;
                 }
             }
-            else {
-                logFile = argv[i];
-            }
+            else logFile = argv[i];
         }
-    } catch (const std::exception&) {
+
+        // Additional validation
+        if (logFile.empty() || token.empty() || !hasName || timestamp == 0 || (!isArrival && !isLeaving)) {
+            std::cout << "invalid" << std::endl;
+            return 255;
+        }
+
+        SecureLogManager manager(logFile, token);
+        Event event(timestamp, token, name, isEmployee, isArrival, roomId);
+        if (!manager.appendEntry(event)) {
+            std::cout << "invalid" << std::endl;
+            return 255;
+        }
+
+        return 0;
+    } catch (...) {
         std::cout << "invalid" << std::endl;
         return 255;
     }
-
-    if (logFile.empty() || token.empty() || name.empty() || timestamp == 0) {
-        std::cout << "invalid" << std::endl;
-        return 255;
-    }
-
-    SecureLogManager manager(logFile, token);
-    Event event(timestamp, token, name, isEmployee, isArrival, roomId);
-    if (!manager.appendEntry(event)) {
-        std::cout << "invalid" << std::endl;
-        return 255;
-    }
-
-    return 0;
 }
