@@ -254,9 +254,12 @@ string findIntersection(const string &logFilePath, const vector<string> &employe
     }
 
     map<string, set<string>> roomOccupants; // Map room -> set of occupants (employees/guests)
-    string line;
-    while (getline(logFile, line))
-    {
+   string encrypted;
+    while (getline(logFile, encrypted)) {
+        std::string key = get_key_from_env(); 
+        std::string line = LINEBYLINE_decrypt(encrypted, key);
+
+        
         LogAppendArgs logEntry = parseLogAppend(line);
 
         if (logEntry.isArrival)
@@ -583,7 +586,7 @@ int main()
     SSL_library_init();
     OpenSSL_add_all_algorithms();
     SSL_load_error_strings();
-
+    store_key_in_env();
     // Create and configure SSL context
     SSL_CTX *ctx = create_context();
     configure_context(ctx); // Existing function to load server cert/key

@@ -6,14 +6,198 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-// #include <experimental/filesystem>
 #include <unordered_map>
 #include <set>
 #include <map>
+#include <openssl/evp.h> 
+#include <openssl/rand.h>
+#include <cstdlib>
+#include <vector>
+#include <stdexcept>
+#include <string>
 
 using json = nlohmann::json;
 using namespace std;
-// namespace fs = std::experimental::filesystem; // Aliasing for simplicity
+
+const int LINEBYLINE_KEY_SIZE = 32; // 256 bits
+const string LINEBYLINE_KEY_ENV_VAR = "LINEBYLINE_KEY";
+
+////restore to here
+
+
+std::string base64_encode(const std::string &in) {
+    size_t encoded_length = 4 * ((in.size() + 2) / 3);
+    std::string out(encoded_length, '\0');
+    int actual_length = EVP_EncodeBlock((unsigned char*)&out[0], 
+                                        (const unsigned char*)in.data(), 
+                                        in.size());
+    out.resize(actual_length);
+    return out;
+}
+
+
+std::string base64_decode(const std::string &in) {
+    size_t decoded_length = 3 * (in.size() / 4);
+    std::string out(decoded_length, '\0');
+    int actual_length = EVP_DecodeBlock((unsigned char*)&out[0], 
+                                        (const unsigned char*)in.data(), 
+                                        in.size());
+    if (in.size() > 0 && in[in.size() - 1] == '=') actual_length--;
+    if (in.size() > 1 && in[in.size() - 2] == '=') actual_length--;
+    out.resize(actual_length);
+    return out;
+}
+
+std::string LINEBYLINE_encrypt(const std::string &plaintext, const std::string &key) {
+    unsigned char ciphertext[plaintext.size()];
+    int outlen;
+    const std::string null = "000000000000"; 
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        throw std::runtime_error("Failed to create context for encryption");
+    }
+
+    if (1 != EVP_EncryptInit_ex(ctx, EVP_chacha20(), NULL, (unsigned char *)key.data(), (unsigned char *)null.data())) {
+        EVP_CIPHER_CTX_free(ctx);
+        throw std::runtime_error("Failed to initialize LINEBYLINE encryption");
+    }
+
+    if (1 != EVP_EncryptUpdate(ctx, ciphertext, &outlen, (unsigned char *)plaintext.data(), plaintext.size())) {
+        EVP_CIPHER_CTX_free(ctx);
+        throw std::runtime_error("Failed to encrypt data");
+    }
+
+    int final_outlen;
+    if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + outlen, &final_outlen)) {
+        EVP_CIPHER_CTX_free(ctx);
+        throw std::runtime_error("Failed to finalize encryption");
+    }
+
+    EVP_CIPHER_CTX_free(ctx);
+
+    
+    std::string ciphertext_str(reinterpret_cast<char*>(ciphertext), outlen + final_outlen);
+
+   
+    return base64_encode(ciphertext_str);
+}
+
+std::string LINEBYLINE_decrypt(const std::string &ciphertext_b64, const std::string &key) {
+    std::string ciphertext = base64_decode(ciphertext_b64);
+
+    unsigned char decryptedtext[ciphertext.size()];
+    int outlen;
+    const std::string null = "000000000000"; 
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        throw std::runtime_error("Failed to create context for decryption");
+    }
+
+    if (1 != EVP_DecryptInit_ex(ctx, EVP_chacha20(), NULL, (unsigned char *)key.data(), (unsigned char *)null.data())) {
+        EVP_CIPHER_CTX_free(ctx);
+        throw std::runtime_error("Failed to initialize LINEBYLINE decryption");
+    }
+
+    if (1 != EVP_DecryptUpdate(ctx, decryptedtext, &outlen, (unsigned char *)ciphertext.data(), ciphertext.size())) {
+        EVP_CIPHER_CTX_free(ctx);
+        throw std::runtime_error("Failed to decrypt data");
+    }
+
+    int final_outlen;
+    if (1 != EVP_DecryptFinal_ex(ctx, decryptedtext + outlen, &final_outlen)) {
+        EVP_CIPHER_CTX_free(ctx);
+        throw std::runtime_error("Failed to finalize decryption");
+    }
+
+    EVP_CIPHER_CTX_free(ctx);
+    return std::string(reinterpret_cast<char*>(decryptedtext), outlen + final_outlen);
+}
+
+
+const std::string KEY_FILE_PATH = "key.txt"; 
+
+void store_key_in_env() {
+    
+    std::ifstream keyFile(KEY_FILE_PATH);
+    if (keyFile.is_open()) {
+        std::string key;
+        keyFile >> key; 
+
+      
+        if (key.length() == LINEBYLINE_KEY_SIZE * 2) {
+            
+            if (setenv("LINEBYLINE_KEY", key.c_str(), 1) != 0) {
+                perror("Failed to set environment variable");
+                throw std::runtime_error("Failed to set environment variable");
+            }
+
+            std::cout << "LINEBYLINE key loaded from file and stored in environment variable LINEBYLINE_KEY." << std::endl;
+            return; // Exit the function since the key was found and set
+        } else {
+            std::cerr << "Invalid key length in key file. Generating a new key." << std::endl;
+        }
+    } else {
+        std::cout << "Key file not found. Generating a new key." << std::endl;
+    }
+
+    // Generate a new random key
+    unsigned char key[LINEBYLINE_KEY_SIZE]; // LINEBYLINE key size is 32 bytes
+    if (RAND_bytes(key, sizeof(key)) != 1) {
+        throw std::runtime_error("Failed to generate random key");
+    }
+
+    // Convert key to hexadecimal string
+    std::ofstream outFile(KEY_FILE_PATH); // Open the file for writing
+    if (!outFile.is_open()) {
+        throw std::runtime_error("Failed to open key file for writing");
+    }
+
+    for (size_t i = 0; i < sizeof(key); ++i) {
+        outFile << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(key[i]);
+    }
+    outFile.close(); 
+
+    
+    std::string hexKey(key, key + sizeof(key) * 2); 
+
+    if (setenv("LINEBYLINE_KEY", hexKey.c_str(), 1) != 0) {
+        perror("Failed to set environment variable");
+        throw std::runtime_error("Failed to set environment variable");
+    }
+
+    std::cout << "LINEBYLINE key generated and stored in " << KEY_FILE_PATH
+              << " and in environment variable LINEBYLINE_KEY." << std::endl;
+}
+
+
+
+std::string get_key_from_env() {
+    std::ifstream keyFile(KEY_FILE_PATH); 
+
+    if (!keyFile.is_open()) {
+        throw std::runtime_error("Key file not found or could not be opened");
+    }
+
+    std::string key;
+    keyFile >> key; 
+
+    
+    if (key.length() != LINEBYLINE_KEY_SIZE * 2) { 
+        throw std::runtime_error("Invalid key length in key file");
+    }
+
+    return key;
+}
+
+// // Store log entry function
+// void storeLogEntry(const LogAppendArgs &logEntry, const std::string &logFilePath) {
+//     ofstream logFile(logFilePath, ios::app); // Correct usage of ofstream
+//     if (!logFile.is_open()) {
+//         throw runtime_error("Unable to open log file for writing");
+//     }
+//     logFile << logEntry.dump() << endl;
+// }
 
 bool isValidInteger(const string& str) {
     if (str.empty() || (!isdigit(str[0]) && str[0] != '-')) return false;
@@ -37,11 +221,17 @@ bool validateTimestamp(const long ts, const string& logFilePath) {
         return false; // If the log file doesn't exist, return false
     }
 
-    string line;
+    // string line;
     long mostRecentTimestamp = 0;
 
     // Parse each line as a JSON object
-    while (getline(logFile, line)) {
+
+    string encrypted;
+    while (getline(logFile, encrypted)) {
+        std::string key = get_key_from_env(); 
+        std::string line = LINEBYLINE_decrypt((encrypted), key);
+        // cout<<line<<endl;
+        // cout<<line<<endl;
         json logEntry = json::parse(line);
 
         // Extract the timestamp from the JSON log entry
@@ -72,10 +262,11 @@ bool validateToken(const string& token, const string& logFilePath) {
         return true; // If the log file doesn't exist, any token is valid
     }
 
-    string line;
-
-    // Parse each line as a JSON object
-    while (getline(logFile, line)) {
+string encrypted;
+    while (getline(logFile, encrypted)) {
+        std::string key = get_key_from_env(); 
+        std::string line = LINEBYLINE_decrypt((encrypted), key);
+        // cout<<line<<endl;
         json logEntry = json::parse(line);
 
         // Extract the token from the JSON log entry
@@ -115,10 +306,11 @@ bool validateArrival(const LogAppendArgs& args, const string& logFilePath) {
     }
 
     unordered_map<string, string> lastLocation;
-    string line;
-
-    // Parse each line as a JSON object
-    while (getline(logFile, line)) {
+   string encrypted;
+    while (getline(logFile, encrypted)) {
+        std::string key = get_key_from_env(); 
+        std::string line = LINEBYLINE_decrypt((encrypted), key);
+        // cout<<line<<endl;
         json logEntry = json::parse(line);
 
         string name = logEntry["name"];
@@ -174,10 +366,11 @@ bool validateDeparture(const LogAppendArgs& args, const string& logFilePath) {
     }
 
     unordered_map<string, string> lastLocation;
-    string line;
-
-    // Parse each line as a JSON object
-    while (getline(logFile, line)) {
+    string encrypted;
+    while (getline(logFile, encrypted)) {
+        std::string key = get_key_from_env(); 
+        std::string line = LINEBYLINE_decrypt((encrypted), key);
+        // cout<<line<<endl;
         json logEntry = json::parse(line);
 
         string name = logEntry["name"];
@@ -244,10 +437,11 @@ bool validateRoomEvent(const LogAppendArgs& args, const string& logFilePath) {
     }
 
     unordered_map<string, string> lastLocation;
-    string line;
-
-    // Parse each line as a JSON object
-    while (getline(logFile, line)) {
+    string encrypted;
+    while (getline(logFile, encrypted)) {
+        std::string key = get_key_from_env(); 
+        std::string line = LINEBYLINE_decrypt((encrypted), key);
+        // cout<<line<<endl;
         json logEntry = json::parse(line);
 
         string name = logEntry["name"];
@@ -324,7 +518,8 @@ void storeLogEntry(const LogAppendArgs& args, const string& logFilePath) {
         {"room", args.room},
         {"logFile", args.logFile}
     };
-
+    std::string key = get_key_from_env();
+    // LINEBYLINE_encrypt(, key);
     // Check if the log file already exists
     // string logFilePath = "logs/" + args.logFile;
 
@@ -351,7 +546,8 @@ void storeLogEntry(const LogAppendArgs& args, const string& logFilePath) {
         throw runtime_error("Unable to open log file");
     }
 
-    logFile << logEntry.dump() << endl;
+    logFile << (LINEBYLINE_encrypt(logEntry.dump() , key)) << endl;
+    // cout<< "log entry stored successfully" << endl;
     logFile.close();
 }
 
@@ -379,8 +575,13 @@ string printLogState(const string& logFilePath) {
         throw runtime_error("Unable to open log file");
     }
 
-    string line;
-    while (getline(logFile, line)) {
+    string encrypted;
+    while (getline(logFile, encrypted)) {
+        std::string key = get_key_from_env(); 
+        // cout<<"encryption key fetched successfullly for de"<<endl;
+        // cout<<"encryption key fetched successfullly for de"<<endl;
+        std::string line = LINEBYLINE_decrypt((encrypted), key);
+        // cout<<line<<end/
         try {
             // Parse the log line as JSON
             json logEntry = json::parse(line);
@@ -487,8 +688,13 @@ string printLogRooms(const string& logFilePath, const string& name, bool isEmplo
         throw runtime_error("Unable to open log file");
     }
 
-    string line;
-    while (getline(logFile, line)) {
+    string encrypted;
+    while (getline(logFile, encrypted)) {
+        std::string key = get_key_from_env(); 
+        // cout<<"encryption key fetched successfullly for de"<<endl;
+        std::string line = LINEBYLINE_decrypt((encrypted), key);
+        // cout<<line<<endl;
+        // cout<<line<<endl;
         try {
             // Parse the log line as JSON
             json logEntry = json::parse(line);
@@ -542,8 +748,13 @@ string printLogTime(const string& logFilePath, const string& name, bool isEmploy
         throw runtime_error("Unable to open log file");
     }
 
-    string line;
-    while (getline(logFile, line)) {
+    string encrypted;
+    while (getline(logFile, encrypted)) {
+        std::string key = get_key_from_env(); 
+        // cout<<"encryption key fetched successfullly for de"<<endl;
+        std::string line = LINEBYLINE_decrypt((encrypted), key);
+        // cout<<line<<endl;
+        // cout<<line<<endl;
         try {
             // Parse the log line as JSON
             json logEntry = json::parse(line);
