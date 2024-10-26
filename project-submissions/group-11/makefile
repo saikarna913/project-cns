@@ -1,15 +1,15 @@
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -Wall -std=c++11
+CXXFLAGS = -Wall -std=c++17
 LDFLAGS = -lssl -lcrypto
 
 # Source files
-CLIENT_SRC = Bank_client.cpp
-SERVER_SRC = Bank_Server.cpp
+CLIENT_SRC = Bank_Server.cpp
+SERVER_SRC = Bank_client.cpp
 
 # Output binaries
-CLIENT_BIN = client
-SERVER_BIN = server
+CLIENT_BIN = atm
+SERVER_BIN = bank
 
 # Certificate and key files
 SERVER_CERT = server_cert.pem
