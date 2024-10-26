@@ -24,6 +24,8 @@ struct Activity
     bool L_flag = false; // Log flag
 };
 
+
+
 // Function to append ".log" if it's not already there
 string ensure_log_extension(const char *logFileName)
 {
@@ -161,10 +163,12 @@ bool checks_on_sequence(Activity lastActivity, ParsedData data)
     {
         return true;
     }
-    if (lastActivity.L_flag && lastActivity.R != -1 && data.A_flag && data.R != -1)
+    if (lastActivity.L_flag && lastActivity.R == -1 && data.A_flag && data.R == -1)
     {
         return true;
     }
+
+    
     // previous activity
     // previous is campus arrival, now new entry is arrival in room
     if (lastActivity.A_flag && lastActivity.R == -1 && data.A_flag && data.R != -1)
@@ -186,6 +190,7 @@ bool checks_on_sequence(Activity lastActivity, ParsedData data)
     {
         return true;
     }
+    
     // no entry in the room, direct campus entry and departure
     else if (lastActivity.A_flag && lastActivity.R == -1 && data.L_flag && data.R == -1)
     {
@@ -820,6 +825,7 @@ int main(int argc, char *argv[])
                     // return 1;
                     invalid("");
                 }
+                
 
                 if (checks_on_sequence(lastactivity, data))
                 {
@@ -882,7 +888,7 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    invalid("");
+                    invalid("seqeunce");
                 }
             }
             catch (const runtime_error &e)
@@ -895,7 +901,7 @@ int main(int argc, char *argv[])
         else if (status == 2)
         {
             // cout << "The file does not exist from before" << endl;
-            // printParsedData(data) ;
+            // ///printParsedData(data) ;
             //  std::cout << "Parsed Data:" << std::endl;
             //  std::cout << "A_flag: " << (data.A_flag ? "true" : "false") << std::endl;
             //  std::cout << "L_flag: " << (data.L_flag ? "true" : "false") << std::endl;
