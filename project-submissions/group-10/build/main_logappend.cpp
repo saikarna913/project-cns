@@ -465,52 +465,74 @@ int main(int argc, char* argv[]) {
 
     long timestamp = 0;
     std::string token, name, logFile;
-    bool isEmployee = false, isGuest = false;
-    bool isArrival = false, isLeaving = false;
+    bool isEmployee = false, isArrival = false;
     int roomId = -1;
-    bool hasName = false;
 
-    for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "-T") == 0) timestamp = std::stol(argv[++i]);
-        else if (strcmp(argv[i], "-K") == 0) token = argv[++i];
-        else if (strcmp(argv[i], "-E") == 0) { 
-            if (isGuest) {
-                std::cout << "invalid" << std::endl;
-                return 255;
+    try {
+        for (int i = 1; i < argc; ++i) {
+            if (strcmp(argv[i], "-T") == 0) {
+                if (i + 1 >= argc) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
+                try {
+                    timestamp = std::stol(argv[++i]);
+                } catch (const std::exception&) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
             }
-            name = argv[++i]; 
-            isEmployee = true;
-            hasName = true;
-        }
-        else if (strcmp(argv[i], "-G") == 0) { 
-            if (isEmployee) {
-                std::cout << "invalid" << std::endl;
-                return 255;
+            else if (strcmp(argv[i], "-K") == 0) {
+                if (i + 1 >= argc) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
+                token = argv[++i];
             }
-            name = argv[++i]; 
-            isGuest = true;
-            hasName = true;
-        }
-        else if (strcmp(argv[i], "-A") == 0) {
-            if (isLeaving) {
-                std::cout << "invalid" << std::endl;
-                return 255;
+            else if (strcmp(argv[i], "-E") == 0) {
+                if (i + 1 >= argc) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
+                name = argv[++i];
+                isEmployee = true;
             }
-            isArrival = true;
-        }
-        else if (strcmp(argv[i], "-L") == 0) {
-            if (isArrival) {
-                std::cout << "invalid" << std::endl;
-                return 255;
+            else if (strcmp(argv[i], "-G") == 0) {
+                if (i + 1 >= argc) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
+                name = argv[++i];
+                isEmployee = false;
             }
-            isLeaving = true;
+            else if (strcmp(argv[i], "-A") == 0) {
+                isArrival = true;
+            }
+            else if (strcmp(argv[i], "-L") == 0) {
+                isArrival = false;
+            }
+            else if (strcmp(argv[i], "-R") == 0) {
+                if (i + 1 >= argc) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
+                try {
+                    roomId = std::stoi(argv[++i]);
+                } catch (const std::exception&) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
+            }
+            else {
+                logFile = argv[i];
+            }
         }
-        else if (strcmp(argv[i], "-R") == 0) roomId = std::stoi(argv[++i]);
-        else logFile = argv[i];
+    } catch (const std::exception&) {
+        std::cout << "invalid" << std::endl;
+        return 255;
     }
 
-    // Additional validation
-    if (logFile.empty() || token.empty() || !hasName || timestamp == 0 || (!isArrival && !isLeaving)) {
+    if (logFile.empty() || token.empty() || name.empty() || timestamp == 0) {
         std::cout << "invalid" << std::endl;
         return 255;
     }
