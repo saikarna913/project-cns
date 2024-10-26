@@ -117,8 +117,8 @@ vector<string> str_break(string &s){
             }
             else if(token=="-T"){
                 ans[5]=token.substr(1,1);
-                if(is_numer(tokens[i+1])) ans[7]=tokens[i+1];
-                else ans[7]="0";
+                if(is_numer(tokens[i+1])) {ans[7]=tokens[i+1];i++;}
+                else ans[7]="-1";
             }
             else if(token=="-G"){
                 ans[3]=tokens[i+1];
@@ -170,5 +170,3 @@ vector<string> str_break(string &s){
     }
     return ans;
 }
-
-

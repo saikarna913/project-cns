@@ -37,25 +37,10 @@ std::string hash_password(const std::string &password)
     char hash_string[2 * SHA256_DIGEST_LENGTH + 1];
     for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
     {
-        // sprintf(hash_string + (i * 2), "%02x", hash[i]);
-        snprintf(hash_string + (i * 2), 3, "%02x", hash[i]);
-
+        sprintf(hash_string + (i * 2), "%02x", hash[i]);
     }
     return std::string(hash_string);
 }
-
-bool validate_password_strength(const std::string& password) {
-    if (password.length() < 8) return false;
-    bool has_upper = false, has_lower = false, has_digit = false, has_special = false;
-    for (char c : password) {
-        if (isupper(c)) has_upper = true;
-        if (islower(c)) has_lower = true;
-        if (isdigit(c)) has_digit = true;
-        if (!isalnum(c)) has_special = true;
-    }
-    return has_upper && has_lower && has_digit && has_special;
-}
-
 
 // Function to read from SSL with a timeout
 bool SSL_read_with_timeout(SSL* ssl, char* buffer, int buffer_size, int timeout_seconds) {
@@ -102,7 +87,7 @@ bool validate_username(const std::string &username)
     }
 
     // Check if the username matches the allowed character pattern
-    std::regex pattern("(^([a-z0-9._-]+)$)");
+    std::regex pattern(R"(^([a-z0-9._-]+)$)");
     if (std::regex_match(username, pattern))
     {
         return true;
@@ -125,12 +110,33 @@ bool isValidAmount(const std::string &input)
     return amount >= 0.00 && amount <=MAX_AMOUNT;
 }
 
+// std::string read_auth_file(const std::string &filename) {
+//     std::ifstream auth_file(filename);
+//     std::string key;
+
+//     if (auth_file.is_open()) {
+//         std::getline(auth_file, key);
+//         auth_file.close();
+//     } else {
+//         std::cerr << "255- Failed to read auth file." << std::endl;
+//     }
+
+//     return key;
+// }
+
 std::string read_auth_file(const std::string &filename) {
     std::ifstream auth_file(filename);
     std::string key;
 
     if (auth_file.is_open()) {
+        // Attempt to read the first line from the file
         std::getline(auth_file, key);
+        
+        // Check if the file was empty (key remains empty after getline)
+        if (key.empty()) {
+            std::cerr << "255- Auth file is empty." << std::endl;
+        }
+        
         auth_file.close();
     } else {
         std::cerr << "255- Failed to read auth file." << std::endl;
@@ -138,7 +144,6 @@ std::string read_auth_file(const std::string &filename) {
 
     return key;
 }
-
 int main()
 {
     // Initialize OpenSSL library
@@ -233,7 +238,7 @@ std::string client_auth_key = read_auth_file("atm_auth_file.txt");
             do
             {
                 std::cout << "Enter username (allowed: [_-., digits, lowercase letters], 1-122 chars): ";
-                std::cin>>username;
+                std::cin >> username;
 
                 if (!validate_username(username))
                 {
@@ -242,18 +247,9 @@ std::string client_auth_key = read_auth_file("atm_auth_file.txt");
             } while (!validate_username(username));
 
             // Input password
-            // std::cout << "Enter password: ";
-            // std::cin >> password;
-            bool valid_password = false;
-            do {
-                std::cout << "Enter password (min 8 chars, must include uppercase, lowercase, number, special char): ";
-                std::cin >> password;
-                if (!validate_password_strength(password)) {
-                    std::cout << "Password too weak! Please try again." << std::endl;
-                } else {
-                    valid_password = true;
-                }
-            } while (!valid_password);
+            std::cout << "Enter password: ";
+            std::cin >> password;
+
             // Input and validate initial balance
             
             // std::cout << "Enter initial deposit amount (must be greater than $10): ";
@@ -307,8 +303,8 @@ std::string client_auth_key = read_auth_file("atm_auth_file.txt");
             // Input and validate username
             do
             {
-                std::cout << "Enter username (allowed: [_-., digits, lowercase letters], 1-122 chars): ";
-                std::cin>>username;
+                std::cout << "Enter username (allowed: [_-., digits, lowercase letters], 1-127 chars): ";
+                std::cin >> username;
 
                 if (!validate_username(username))
                 {

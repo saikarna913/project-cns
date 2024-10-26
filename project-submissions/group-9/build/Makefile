@@ -2,10 +2,10 @@
 CXX = g++
 
 # Compiler flags
-CXXFLAGS = -std=c++11 -Wall -Wextra -I/usr/include/jsoncpp
+CXXFLAGS = -std=c++17 -Wall -Wextra -I/usr/include/jsoncpp
 
 # Libraries
-LIBS = -lssl -lcrypto -ljsoncpp
+LIBS = -lssl -lcrypto -ljsoncpp -pthread
 
 # Executable names
 ATM = atm
