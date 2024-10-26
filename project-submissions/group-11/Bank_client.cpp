@@ -20,7 +20,7 @@ void transaction_window(SSL *ssl);
 void log_message(const string &message);
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
-#define PUBLIC_KEY_FILE "public_key.pem"
+#define PUBLIC_KEY_FILE "../../certs/public_key.pem"
 
 string session_token; 
 SSL *ssl_global; 

@@ -22,9 +22,9 @@ using namespace std;
 
 void save_auth_file(const string &filename);
 #define SERVER_PORT 8080
-#define PRIVATE_KEY_FILE "private_key.pem"
-#define AUTH_FILE "auth.txt"
-#define BACKUP_FILE "auth_backup.txt"
+#define PRIVATE_KEY_FILE "../../certs/private_key.pem"
+#define AUTH_FILE "../auth.txt"
+#define BACKUP_FILE "../auth_backup.txt"
 
 map<string, tuple<string, double, string, string>> user_database;
 mutex user_database_mutex;
@@ -426,8 +426,8 @@ SSL_CTX *create_ssl_context() {
         exit(EXIT_FAILURE);
     }
 
-    if (SSL_CTX_use_certificate_file(ctx, "server_cert.pem", SSL_FILETYPE_PEM) <= 0 ||
-        SSL_CTX_use_PrivateKey_file(ctx, "server_key.pem", SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_certificate_file(ctx, "../../certs/server_cert.pem", SSL_FILETYPE_PEM) <= 0 ||
+        SSL_CTX_use_PrivateKey_file(ctx, "../../certs/server_key.pem", SSL_FILETYPE_PEM) <= 0) {
         log_error("Failed to load certificates");
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
