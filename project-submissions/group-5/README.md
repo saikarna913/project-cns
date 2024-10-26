@@ -18,7 +18,25 @@ sudo apt-get install g++ libssl-dev libmysqlcppconn-dev libcurl4-openssl-dev lib
 
 
 ## Database (for bank)
-Before running the initialization command, make sure your database credentials are correctly set in the configuration file
+To open MySQL in Linux terminal use
+```
+sudo mysql
+```
+To set the root password
+```
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'YourNewPassword';
+```
+
+Now make a db_config.txt file
+```
+host=127.0.0.1
+user=root
+password='YourNewPassword'
+database=atm_bank_db
+port=3306
+```
+
+Before running the initialization command, make sure your database credentials are correctly set in the db_config.txt file
 ```
 make initdb
 ```
