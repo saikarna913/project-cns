@@ -33,38 +33,29 @@ void readLogFile(const string &token, const string &logFile, map<string, PersonI
 
     if (!log.is_open())
     {
-        // cerr << "Unable to open log file." << endl;
+        cerr << "Unable to open log file." << endl;
         exit(255);
     }
     // cout << "inside" << endl;
     SecureLogger logger;
 
     // uncomment the following line and pass the token and fileppath as strings
-    int status=logger.init(token, logFile);
+    logger.init(token, logFile);
     // cout << "inside1" << endl;
     // logger.encrypt_log_file();
-    if(status==-1){
-        cout << "integrity violation" << endl;
-        exit(255);
-    }
-    else if(status==1){
-        exit(255);
-    }
-    else if(status==2){
-        const char *file_path = logFile.c_str();
-        remove(file_path);
-    }
 
     unsigned char *decrypted_data = logger.decrypt_log();
     // cout << "inside2" << endl;
 
     unsigned long long leng = logger.get_plaintext_len();
-    char newarray[leng];
-    for (unsigned long long i = 0; i < leng; i++)
-    {
-        newarray[i] = decrypted_data[i];
-    }
+        char newarray[leng];
+        for (unsigned long long i = 0; i < leng; i++)
+                {
+                    newarray[i] = decrypted_data[i];
+                }
 
+
+    
     // cout << "Decrypted: " << reinterpret_cast<const char *>(newarray) << endl;
 
     // Convert decrypted_data to a string for easier line-by-line processing
@@ -145,7 +136,7 @@ void readLogFile(const string &token, const string &logFile, map<string, PersonI
             else if (L_flag && roomId == "-1")
                 guests.erase(name);
         }
-
+        
         // Track room history if it's not the campus entry (-1)
         if (roomId != "-1")
         {
@@ -213,7 +204,7 @@ void printState(const set<string> &employees, const set<string> &guests, const m
     // Print the room-wise occupancy in ascending order
     for (const auto &room : rooms)
     {
-        if (stoi(room.first) > 0)
+        if (stoi(room.first) >= 0)
         {
             cout << room.first << ": "; // Print room ID
             for (auto it = room.second.begin(); it != room.second.end(); ++it)
@@ -234,12 +225,12 @@ void printRoomHistory(const string &name, const map<string, PersonInfo> &campusS
     // Check if the person is an employee or a guest based on the flag
     if (checkEmployee && employees.find(name) == employees.end())
     {
-        // cout << name << " not an employee." << endl; // Output invalid if the person is not an employee
-        return ;
+        cout << name << " not an employee." << endl; // Output invalid if the person is not an employee
+        return;
     }
     else if (!checkEmployee && guests.find(name) == guests.end())
     {
-        // cout << name << " not a guest." << endl; // Output invalid if the person is not a guest
+        cout << name << " not a guest." << endl; // Output invalid if the person is not a guest
         return;
     }
 
@@ -262,7 +253,7 @@ void printRoomHistory(const string &name, const map<string, PersonInfo> &campusS
     {
         for (size_t i = 0; i < roomsVisited.size(); ++i)
         {
-            if (stoi(roomsVisited[i]) > 0)
+            if (stoi(roomsVisited[i]) >= 0)
             {
                 cout << roomsVisited[i];
                 if (i != roomsVisited.size() - 1)
@@ -278,12 +269,12 @@ void printTotalTime(const string &name, const map<string, TimeInfo> &timeTrackin
     // Check if the person is an employee or a guest based on the flag
     if (checkEmployee && employees.find(name) == employees.end())
     {
-        // cout << name << " is not an employee." << endl; // Output invalid if the person is not an employee
+        cout << name << " is not an employee." << endl; // Output invalid if the person is not an employee
         return;
     }
     else if (!checkEmployee && guests.find(name) == guests.end())
     {
-        // cout << name << " is not a guest." << endl; // Output invalid if the person is not a guest
+        cout << name << " is not a guest." << endl; // Output invalid if the person is not a guest
         return;
     }
 
@@ -323,12 +314,12 @@ void printCommonRooms(const vector<pair<string, bool>> &names, const map<string,
         // Check if the person is an employee or guest based on the flag
         if (isEmployee && employees.find(name) == employees.end())
         {
-            // cout << name << " is not an employee." << endl;
+            cout << name << " is not an employee." << endl;
             return;
         }
         else if (!isEmployee && guests.find(name) == guests.end())
         {
-            // cout << name << " is not a guest." << endl;
+            cout << name << " is not a guest." << endl;
             return;
         }
 
@@ -397,19 +388,19 @@ void printCommonRooms(const vector<pair<string, bool>> &names, const map<string,
     }
 }
 
+
 int main(int argc, char *argv[])
 {
     if (sodium_init() < 0)
     {
-        // cerr << "Failed to initialize sodium" << endl;
-        // return 1;
-        exit(255);
+        cerr << "Failed to initialize sodium" << endl;
+        return 1;
     }
 
     if (argc < 4)
     {
         cout << "invalid" << endl;
-        exit(255);
+        return 255;
     }
 
     // string token = argv[2];
@@ -448,7 +439,7 @@ int main(int argc, char *argv[])
     else
     {
         cout << "invalid" << endl;
-        exit(255);
+        return 255;
     }
 
     if (option == "-S")
@@ -487,7 +478,7 @@ int main(int argc, char *argv[])
     else if (option == "-I")
     {
         vector<pair<string, bool>> names; // To hold (name, isEmployee)
-        for (int i = 0; i < data.E_names.size(); i++)
+        for (int i = 0; i < data.E_names.size();i++)
         {
             names.push_back({data.E_names[i], true});
         }
@@ -495,14 +486,14 @@ int main(int argc, char *argv[])
         {
             names.push_back({data.G_names[i], false});
         }
-        // cout<<"Started"<<endl;
+        // cout<<"Started"<<endl;   
         // Call the function to print common rooms
         printCommonRooms(names, campusState, employees, guests);
     }
     else
     {
         cout << "invalid" << endl;
-        exit(255);
+        return 255;
     }
 
     return 0;
