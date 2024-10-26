@@ -87,7 +87,7 @@ void readLogFile(const string &token, const string &logFile, map<string, PersonI
 
         // Convert A_flag and L_flag from string to boolean
         A_flag = (a_flag_str == "true");
-        L_flag = (l_flag_str == "true");
+        L_flag = !A_flag;
 
         latestTimestamp = timestamp; // Update the latest timestamp
 
