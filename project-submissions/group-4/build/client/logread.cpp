@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
 
     // Variables to hold parsed values
     std::string token, log_file, name, role, timestamp;
-    bool SBool = false, RBool = false, TBool = false, KBool = false, EBool = false, GBool = false;
+    bool SBool = false, RBool = false, TBool = false, KBool = false, EBool = false, GBool = false, logBool = false;
 
     // Get the server IP from the environment variable
     const char* server_ip = std::getenv("SERVER_IP");
@@ -154,14 +154,16 @@ int main(int argc, char* argv[]) {
             GBool = true;
             name = argv[++i];
             role = "Guest";
-        }else if (strcmp(argv[i], "-I") == 0){
-            std::cout << "Unimplemented yet" << std::endl;
-            return 0;
         }else {
-            log_file = argv[i];  // Final argument is the log file
+            if(logBool){
+                std::cerr << "Invalid! Give proper command" << std::endl;
+                return false;
+            }
+            log_file = argv[i];
+            logBool = true;  // Final argument is the log file
         }
     }
-
+    
     // Basic validation: Ensure token (-K) is set
     if (!KBool) {
         std::cerr << "Invalid! Missing token (-K)" << std::endl;
