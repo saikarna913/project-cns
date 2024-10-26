@@ -4,11 +4,11 @@
 #include "ciphering.cpp"
 //#include <winsock2.h>
 #include <filesystem>
-
+#include "sha256.cpp"
 using namespace std;
 
 #define PORT 8080
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 1024*1024
 #define Secret_key 1234
 void deleteLastLine(const string& filePath) {
     if (!filesystem::exists(filePath)) {
@@ -56,8 +56,10 @@ struct LogEntry {
     int roomId;
 };
 LogEntry parseLogLine(const string& line) {
-    stringstream ss(line);
+    
+    stringstream ss(str_decription(line));
     LogEntry entry;
+
     ss >> entry.timestamp >> entry.name >> entry.type >> entry.status >> entry.roomId;
     return entry;
 }
@@ -92,12 +94,12 @@ bool store_csv(vector<string>& info) {
     data[3] = info[5];
     data[4] = info[6] != "" ? info[6] : "-1";
     // string s ="";
-
+    string temp ="";
     for (auto word : data) {
         // s +=word +" ";
-        file << word << " ";
+        temp += word +" ";
     }
-    file << endl;
+    file << str_encription(temp) <<  endl;
     // file << s << endl;
     file.flush();
     file.close();
@@ -107,7 +109,13 @@ bool store_csv(vector<string>& info) {
 bool check_logappend_query(vector<string> &info){
     string filePath=info[2];
     if(!filesystem::exists(filePath) && info[5]=="L") return false;
-    else if(!filesystem::exists(filePath)) return true;
+    else if(!filesystem::exists(filePath)){
+        if(info[5]=="A" && info[6]!=""){
+            return false;
+        }else{
+            return true;
+        }
+    }
     else{
         ifstream file(filePath);
         if (!file) {
@@ -119,14 +127,14 @@ bool check_logappend_query(vector<string> &info){
         int time1=-1;
         vector<string> v;
         while (getline(file, line)) {
-            stringstream ss(line);
+            stringstream ss(str_decription(line));
             string word;
             vector<string> words;
             while (ss >> word) {
                 words.push_back(word);
             }
             
-            if(info[3]==words[1]) {curr=words[3];time=stoi(words[0]);v=words;}
+            if((info[3]==words[1])&&(info[4]==words[2])) {curr=words[3];time=stoi(words[0]);v=words;}
             time1=stoi(words[0]);
         }
         file.close();
@@ -146,7 +154,7 @@ bool check_logappend_query(vector<string> &info){
                 if(v[3]=="L" && v[4]!="-1") flg =true;
             }
             if(info[5]=="L" && info[6]!=""){
-                if(v[3]=="A" && v[4]!="-1") flg =true;
+                if(v[3]=="A" && v[4] == info[6]) flg =true;
             }
             if(info[5]=="L" && info[6]==""){
                 if(v[3]=="L" && v[4]!="-1") flg =true;
@@ -160,7 +168,7 @@ bool check_logappend_query(vector<string> &info){
         if(flg ==false){
             return false;
         }
-        if(time1>stoi(info[7])) return false;
+        if(time1>=stoi(info[7])) return false;
         if(time==-1) {return true;}
         else{
             if(stoi(info[7])<time) return false;
@@ -175,27 +183,28 @@ string process_Squery(const string& filePath) {
     }
     set<string> employeesInCampus;
     set<string> guestsInCampus;
-    map<int, set<string>> roomOccupancy;
+    map<int, map<string,int>> roomOccupancy;
 
     string line;
     while (getline(file, line)) {
         LogEntry entry = parseLogLine(line);
-        if (entry.status == "A") {
+        if (entry.status == "A" && entry.roomId==-1) {
             if (entry.type == 0) employeesInCampus.insert(entry.name);
             else guestsInCampus.insert(entry.name);
-
-            // Add to room occupancy
-            roomOccupancy[entry.roomId].insert(entry.name);
-        } else if (entry.status == "L") {
+        } else if (entry.status == "L" && entry.roomId==-1) {
             if (entry.type == 0) employeesInCampus.erase(entry.name);
             else guestsInCampus.erase(entry.name);
-
-            // Remove from room occupancy
-            roomOccupancy[entry.roomId].erase(entry.name);
-            if (roomOccupancy[entry.roomId].empty()) {
-                roomOccupancy.erase(entry.roomId);  // Remove room if empty
+        }
+        else if(entry.status == "L" && entry.roomId!=-1){
+            roomOccupancy[entry.roomId][entry.name]--;
+            if(roomOccupancy[entry.roomId][entry.name]==0){
+                roomOccupancy[entry.roomId].erase(entry.name);
+                if(roomOccupancy[entry.roomId].empty()){
+                    roomOccupancy.erase(entry.roomId);
+                }
             }
         }
+        else roomOccupancy[entry.roomId][entry.name]++;
     }
 
     file.close();
@@ -212,14 +221,15 @@ string process_Squery(const string& filePath) {
         response +=*it;
     }
     response +=" ";
-    for (const auto& [roomId, occupants] : roomOccupancy) {
+    for (auto rooms: roomOccupancy) {
+        int roomId =rooms.first;
         if(roomId==-1) continue;
         response += to_string(roomId) +":";
-        bool first = true;
-        for (const auto& occupant : occupants) {
-            if (!first) response +=",";
-            response +=occupant;
-            first = false;
+        bool flg = true;
+        for (auto occupant : rooms.second) {
+            if (!flg) response +=",";
+            response +=occupant.first;
+            flg = false;
         }
         response +=" ";
     }
@@ -267,27 +277,30 @@ string  getTotalTimeSpent(const string& filePath, const string& name, int type,i
     }
 
     int totalTime = 0; 
-    int lastArrival = -1;
+    int lastentry = -1;
+    int time_arrived=0;
     bool isCurrentlyInCampus = false;
     string line;
     while (getline(file, line)) {
         LogEntry entry = parseLogLine(line);
         if (entry.name == name && entry.type == type) {
-            if (entry.status == "A") {
-                lastArrival = entry.timestamp;
+            if (entry.status == "A" && entry.roomId==-1) {
+                time_arrived=entry.timestamp;
                 isCurrentlyInCampus = true;
-            } else if (entry.status == "L" && lastArrival != -1) {
+            } else if (entry.status == "L" && entry.roomId == -1) {
                 // Calculate the time spent from last arrival to this leaving
-                totalTime += (entry.timestamp - lastArrival);
-                lastArrival = -1;  // Reset lastArrival after leaving
+                totalTime += (entry.timestamp - time_arrived);
                 isCurrentlyInCampus = false;
             }
         }
+        lastentry=entry.timestamp;
     }
-
     file.close();
-    if (isCurrentlyInCampus && lastArrival != -1) {
-        totalTime += (currentTime - lastArrival);
+    if (isCurrentlyInCampus) {
+        if(currentTime==-1){
+            totalTime+=(lastentry-time_arrived);
+        }
+        else totalTime += (currentTime - time_arrived);
     }
     if (totalTime > 0) {
         response +=to_string(totalTime) +" ";
@@ -309,8 +322,9 @@ string  process_Iquery(vector<string> info) {
     for(int i =3; i<length; i++){
         names.insert(info[i]);
     }
-    int tot_ppl =names.size();
+    int tot_ppl =length-3;
     map<string,set<string>> ppl_room;
+    map<string,map<string,int>> res;
     bool first =false;
     while(getline(file, line)){
         LogEntry entry = parseLogLine(line);
@@ -323,8 +337,14 @@ string  process_Iquery(vector<string> info) {
         }
         if(entry.status =="A"){
             ppl_room[room].insert(entry.name);
+            res[room][entry.name]++;
         }else{
-            ppl_room[room].erase(entry.name);
+            res[room][entry.name]--;
+            if(res[room][entry.name]==0){
+                ppl_room[room].erase(entry.name);
+                res[room].erase(entry.name);
+            }
+            
         }
         if(ppl_room[room].size()==tot_ppl){
             if(first){
@@ -355,6 +375,7 @@ string process_log_read(vector<string> &info){
 string q_process(vector<string> &info){
     if(info[0]=="logappend"){
         if(!check_logappend_query(info)){
+            cout  << "0" << endl;
             return "Invalid";
         }
         else store_csv(info);
@@ -373,7 +394,7 @@ pair<bool,string> user_key(string file_path){
         string a,b;
         ss >> a;
         ss >> b;
-        if(file_path ==a){
+        if(file_path ==str_decription(a)){
             return {true,b};
         }
     }
@@ -452,7 +473,7 @@ void Server(){
                 info_key =info[1];
                 file_path =info[2];
                 auto res =user_key(file_path);
-                if(res.first ==true && res.second!=info_key){
+                if(res.first ==true && res.second!=sha256(info_key)){
                     response ="key Invalid";
                 }else{
                     cout << "yes" << endl;
@@ -460,7 +481,7 @@ void Server(){
                         cout << "No" << endl;
                         ofstream file;
                         file.open("keys.csv", ios::app);
-                        file << file_path << " " << info_key;
+                        file << str_encription(file_path) << " " << sha256(info_key);
                         file << endl;
                         file.close();
                     }
