@@ -16,6 +16,7 @@ bool is_alpha(const string &s) {
 }
 
 bool is_valid_number(const string &s) {
+    if (!s.empty() && s[0]=='-') return false;
     if (s.empty() || (!isdigit(s[0]) && s[0] != '-')) return false;
     for (int i = 1; i < s.size(); i++) {
         if (!isdigit(s[i])) return false;
@@ -148,6 +149,7 @@ bool input_validation(string &s) {
                     return false;
                 }
                 if(tokens[i+1]=="0") return false;
+                if(stoi(tokens[i+1])>1073741823) return false;
                 hasTimestamp = true;
                 i++;
             } else if (token == "-K") {

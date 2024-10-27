@@ -2,18 +2,18 @@
 CXX = g++
 
 # Compiler flags
-CXXFLAGS = -std=c++11 -Wall -Wextra -I/usr/include/jsoncpp
+CXXFLAGS = -std=c++17 -Wall -Wextra -I/usr/include/jsoncpp
 
 # Libraries
-LIBS = -lssl -lcrypto -ljsoncpp
+LIBS = -lssl -lcrypto -ljsoncpp -pthread
 
 # Executable names
 ATM = atm
 BANK = bank
 
 # Source files
-ATM_SRC = atm.cpp
-BANK_SRC = bank.cpp
+ATM_SRC = atm.cpp encryption.cpp
+BANK_SRC = bank.cpp encryption.cpp
 
 # Files to clean
 CLEAN_FILES = *.card *.auth $(ATM) $(BANK)
