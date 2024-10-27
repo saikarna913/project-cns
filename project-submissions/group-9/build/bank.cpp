@@ -14,6 +14,7 @@
 #include <csignal>
 #include <filesystem> // For checking file existence
 #include "secret_key.h" // Include the header file with the secret key
+#include "encryption.h"
 
 const char* CERT_FILE = "server.crt";
 const char* KEY_FILE = "server.key";
@@ -56,6 +57,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Error: Unable to create auth file." << std::endl;
         return 255; // Exit on failure to create file
     }
+    encryptFile(authFileName);
     authFile.close();
     std::cout << "created" << std::endl; // Print confirmation
 
@@ -155,12 +157,16 @@ void readAuthFile(const std::string& authFile) {
     std::ifstream infile(authFile);
     std::string line;
 
+    decryptFile(authFile);
+
     while (std::getline(infile, line)) {
         std::string accountNumber = line.substr(0, line.find(','));
         std::string pin = line.substr(line.find(',') + 1);
         accountPins[accountNumber] = pin; // Store the PIN
         accountBalances[accountNumber] = 0.0; // Initialize balance to zero
     }
+
+    encryptFile(authFile);
 }
 
 void createAccount(const std::string& accountNumber, double initialBalance, const std::string& pin) {
@@ -170,6 +176,8 @@ void createAccount(const std::string& accountNumber, double initialBalance, cons
         std::cerr << "Account already exists." << std::endl;
         return; // Do not exit, just return
     }
+
+    decryptFile(authFileName);
 
     accountBalances[accountNumber] = initialBalance;
     accountPins[accountNumber] = pin;
@@ -181,6 +189,8 @@ void createAccount(const std::string& accountNumber, double initialBalance, cons
     } else {
         std::cerr << "Failed to open auth file for writing." << std::endl;
     }
+
+    encryptFile(authFileName);
 
     std::cout << "Account " << accountNumber << " created successfully with initial balance: " << initialBalance << std::endl;
 }
@@ -299,15 +309,16 @@ void handleClient(SSL* ssl) {
 
 void signalHandler(int signum) {
     std::cout << "Caught signal " << signum << ", exiting gracefully." << std::endl;
+    // Perform cleanup if necessary
     exit(signum);
 }
 
 int parseCommandLineArguments(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
-        if (arg == "-p" && i + 1 < argc) { 
+        if (arg == "-p" && i + 1 < argc) { // Change from "-port" to "-p"
             PORT = std::stoi(argv[++i]);
-        } else if (arg == "-s" && i + 1 < argc) {
+        } else if (arg == "-s" && i + 1 < argc) { // Change from "-auth" to "-s"
             authFileName = argv[++i];
         } else {
             std::cerr << "Invalid argument: " << arg << std::endl;
