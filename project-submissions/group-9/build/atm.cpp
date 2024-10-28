@@ -12,12 +12,23 @@
 #include <sstream>
 #include <limits>
 #include <algorithm>
+#include <regex>
 #include "secret_key.h"  // Include the header file with the secret key
+#include "encryption.h"
 
 const int DEFAULT_PORT = 3000;
 const char* CLIENT_CERT = "client.crt";
 const char* CLIENT_KEY = "client.key";
 const char* CA_FILE = "ca.crt";
+
+// Validation patterns
+const std::regex ACCOUNT_PATTERN("^[a-z0-9_.-]{1,122}$");
+const std::regex FILENAME_PATTERN("^(?!\\.\\.)(?!\\.)([a-z0-9_.-]{1,127})$");
+const std::regex IP_PATTERN("^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9]?)\\."
+                            "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9]?)\\."
+                            "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9]?)\\."
+                            "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9]?)$");
+const std::regex AMOUNT_PATTERN(R"(^\d{1,10}(\.\d{1,2})?$)");
 
 SSL_CTX* InitClientCTX();
 std::string generateHMAC(const std::string& message);
@@ -25,33 +36,91 @@ void sendRequest(Json::Value& request, const char* ip, int port);
 bool createCardFile(const std::string& cardFile, int pin);
 std::string readCardFile(const std::string& cardFile);
 int getPIN();
+bool isValidAccountName(const std::string& account);
+bool isValidFileName(const std::string& fileName);
+bool isValidIPAddress(const std::string& ip);
+bool isValidPort(int port);
+bool isValidAmount(const std::string& amountStr);
 
 int main(int argc, char* argv[]) {
     std::string account, operation, cardFile, ipAddress = "127.0.0.1";
+    std::string amountStr = "0";
     double amount = 0.0;
     int port = DEFAULT_PORT;
+    bool operationSpecified = false; // Initialize operationSpecified
 
     // Parse command-line arguments
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-a") == 0 && i + 1 < argc) {
             account = argv[++i];
+            if (!isValidAccountName(account)) {
+                std::cerr << "Invalid account name" << std::endl;
+                return 255;
+            }
         } else if (strcmp(argv[i], "-n") == 0 && i + 1 < argc) {
+            if (operationSpecified) {
+                std::cerr << "Error: Only one operation can be performed per command line." << std::endl;
+                return 255;
+            }
             operation = "create";
-            amount = atof(argv[++i]);
+            amountStr = argv[++i];
+            amount = atof(amountStr.c_str());
+            if (!isValidAmount(amountStr) || amount < 10.0) {
+                std::cerr << "Invalid amount for account creation" << std::endl;
+                return 255;
+            }
+            operationSpecified = true; // Mark that an operation is specified
         } else if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
+            if (operationSpecified) {
+                std::cerr << "Error: Only one operation can be performed per command line." << std::endl;
+                return 255;
+            }
             operation = "deposit";
-            amount = atof(argv[++i]);
+            amountStr = argv[++i];
+            amount = atof(amountStr.c_str());
+            if (!isValidAmount(amountStr)) {
+                std::cerr << "Invalid deposit amount" << std::endl;
+                return 255;
+            }
+            operationSpecified = true; // Mark that an operation is specified
         } else if (strcmp(argv[i], "-w") == 0 && i + 1 < argc) {
+            if (operationSpecified) {
+                std::cerr << "Error: Only one operation can be performed per command line." << std::endl;
+                return 255;
+            }
             operation = "withdraw";
-            amount = atof(argv[++i]);
+            amountStr = argv[++i];
+            amount = atof(amountStr.c_str());
+            if (!isValidAmount(amountStr)) {
+                std::cerr << "Invalid withdrawal amount" << std::endl;
+                return 255;
+            }
+            operationSpecified = true; // Mark that an operation is specified
         } else if (strcmp(argv[i], "-g") == 0) {
+            if (operationSpecified) {
+                std::cerr << "Error: Only one operation can be performed per command line." << std::endl;
+                return 255;
+            }
             operation = "get_balance";
+            operationSpecified = true; // Mark that an operation is specified
         } else if (strcmp(argv[i], "-c") == 0 && i + 1 < argc) {
             cardFile = argv[++i];
+            if (!isValidFileName(cardFile)) {
+                std::cerr << "Invalid card file name" << std::endl;
+                return 255;
+            }
         } else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
             ipAddress = argv[++i];
+            if (!isValidIPAddress(ipAddress)) {
+                std::cerr << "Invalid IP address" << std::endl;
+                return 255;
+            }
         } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
             port = atoi(argv[++i]);
+            if (!isValidPort(port)) {
+                std::cerr << "Invalid port number" << std::endl;
+                return 255;
+            }
         }
     }
 
@@ -70,7 +139,14 @@ int main(int argc, char* argv[]) {
 
     // Handle account creation
     if (operation == "create") {
-        cardFile = account + ".card"; // Set cardFile based on account name
+        // Use provided card file name if specified; otherwise, default to account name
+        cardFile = cardFile.empty() ? account + ".card" : cardFile;
+
+        if (!isValidFileName(cardFile)) {
+            std::cerr << "Invalid card file name" << std::endl;
+            return 255;
+        }
+
         std::ifstream cardStream(cardFile);
         if (cardStream.is_open()) {
             std::cerr << "Card file already exists. Account creation not allowed." << std::endl;
@@ -102,7 +178,9 @@ int main(int argc, char* argv[]) {
         }
     } else {
         // For other operations, ensure the card file exists
+        decryptFile(cardFile);
         std::string pin = readCardFile(cardFile);
+        encryptFile(cardFile);
         if (pin.empty()) {
             std::cerr << "Invalid or missing card file" << std::endl;
             return 255;
@@ -135,19 +213,24 @@ bool createCardFile(const std::string& cardFile, int pin) {
         std::cerr << "Error: Could not create card file " << cardFile << std::endl;
         return false;
     }
-    cardStream << pin << std::endl;
-    cardStream.close();
+    cardStream << pin << std::endl; // Write the PIN
+    cardStream.close(); // Close before encryption
+    encryptFile(cardFile); // Encrypt the file after writing
     return true;
 }
 
 std::string readCardFile(const std::string& cardFile) {
+    // decryptFile(cardFile); // Decrypt the file before reading
     std::ifstream infile(cardFile);
     std::string line;
 
     if (infile.is_open()) {
         std::getline(infile, line); // Read the PIN from the card file
+        infile.close();
         return line;
     }
+    std::cerr << "Failed to open card file after decryption." << std::endl;
+    // encryptFile(cardFile); // Re-encrypt the file if read fails
     return "";
 }
 
@@ -210,6 +293,35 @@ std::string generateHMAC(const std::string& message) {
     }
 
     return hmacHex.str();
+}
+
+// Helper functions for validation
+bool isValidAccountName(const std::string& account) {
+    return std::regex_match(account, ACCOUNT_PATTERN);
+    //  && account != "." && account != "..";
+}
+
+bool isValidFileName(const std::string& fileName) {
+    return std::regex_match(fileName, FILENAME_PATTERN);
+}
+
+bool isValidIPAddress(const std::string& ip) {
+    return std::regex_match(ip, IP_PATTERN);
+}
+
+bool isValidPort(int port) {
+    return port >= 1024 && port <= 65535;
+}
+
+bool isValidAmount(const std::string& amountStr) {
+    if (!std::regex_match(amountStr, AMOUNT_PATTERN)) {
+        return false;
+    }
+    double amount = atof(amountStr.c_str());
+    if (amount < 0.0 || amount > 4294967295.99) {
+        return false;
+    }
+    return true;
 }
 
 void sendRequest(Json::Value& request, const char* ip, int port) {

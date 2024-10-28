@@ -57,7 +57,7 @@ We enhanced the strength of all ciphers used in our TLS protocol by employing th
 
 Follow these steps to configure the ATM-Bank model:
 
-1. Download the Build Folder: This folder contains the Makefile for macOS and Ubuntu, the C++ codes for the ATM and Bank, and a requirements folder with the necessary files to run the codes successfully.
+1. Download the Build Folder: This folder contains the Makefile for macOS and Ubuntu, the C++ codes for the ATM and Bank, and all the necessary requirements files. NOTE: Since the requirements for running the model on Linux and MacOS are different, we have two makefiles corresponding to both the systems. Depending on the system you are using, copy the makefile corresponding to your system into the build folder and rename it either 'makefile' or 'Makefile'.
 2. Compile the Code: Use the Makefile to compile atm_final and bank_final to create the executable files atm and bank, respectively.
 3. Configure Server IP: Store the IP address of the machine running the Bank in server_ip.txt. Ensure that port 8080 is available for the Bank to operate.
 4. Run the Bank: Start the Bank executable with the command: ./bank

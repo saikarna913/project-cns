@@ -14,8 +14,8 @@ EXECUTABLES = $(BUILD_DIR)/logappend $(BUILD_DIR)/logread
 REMOVALS = logappend logread
 
 # Object files for logappend and logread (point to the source directory)
-LOGAPPEND_OBJS = logappend.cpp security.cpp parseappend.cpp
-LOGREAD_OBJS = logread.cpp security.cpp parseread.cpp
+LOGAPPEND_OBJS = logappend.cpp security.cpp parseAppend.cpp
+LOGREAD_OBJS = logread.cpp security.cpp parseRead.cpp
 
 # Default target: build all executables
 all: $(BUILD_DIR) $(EXECUTABLES)
