@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <nlohmann/json.hpp>
 #include <filesystem>
+#include <sys/stat.h>
 
 using namespace std;
 using json = nlohmann::json;
@@ -34,6 +35,7 @@ private:
     void update_logfile_length(const string &target_logfile, const string &json_file_path, size_t new_length);
     string toHexString(const unsigned char *data, size_t length);
     unsigned char *fromHexString(const string &hexStr, size_t outLength);
+    bool isRegularFile(string filePath);
 
 public:
     int init(string token, string filename);

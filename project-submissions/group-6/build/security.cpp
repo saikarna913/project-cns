@@ -280,6 +280,16 @@ unsigned char *SecureLogger::fromHexString(const string &hexStr, size_t outLengt
     return a;
 }
 
+bool SecureLogger::isRegularFile(string filePath)
+{
+    struct stat sb;
+    if (stat(filePath.c_str(), &sb) == 0)
+    {
+        return S_ISREG(sb.st_mode);
+    }
+    return false;
+}
+
 /// @brief This function initialises the instance of the class and should be called first after creating the instance.
 /// @param token --- string --- token passed in the command.
 /// @param filename --- string --- name of the logfile passed in the command.
@@ -316,8 +326,13 @@ int SecureLogger::init(string token, string filename)
         // cout << "Token does not exist(means file does not exists)" << endl;
 
         // create a new file given the relative path as filename
-
         std::filesystem::path pathObj(filename);
+
+        if (isRegularFile(filename))
+        {
+            cout << "Not a regular file path!" << endl;
+            exit(255);
+        }
 
         // Check if path has no parent directory (i.e., it's only a file name)
         if (!pathObj.has_parent_path())
