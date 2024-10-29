@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <limits>
 #include <map>
 #include <cstring>
 #include <cstdlib>
@@ -501,6 +502,7 @@ int main(int argc, char* argv[]) {
         return 255;
     }
 
+    // Handle batch processing separately
     if (std::string(argv[1]) == "-B") {
         if (argc != 3) {
             std::cout << "invalid" << std::endl;
@@ -515,24 +517,49 @@ int main(int argc, char* argv[]) {
     bool isArrival = false, isLeaving = false;
     int roomId = -1;
     bool hasName = false;
+    bool hasLogFile = false;
 
     try {
+        // First pass: identify all parameters and validate their presence
+        for (int i = 1; i < argc; ++i) {
+            std::string arg = argv[i];
+            
+            if (arg == "-T" || arg == "-K" || arg == "-E" || arg == "-G" || arg == "-R") {
+                // These flags require an additional parameter
+                if (i + 1 >= argc) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
+                i++; // Skip the next argument as it's the parameter
+            }
+            else if (arg == "-A" || arg == "-L") {
+                // These flags don't take parameters
+                continue;
+            }
+            else {
+                // This should be the log file name, and it should only appear once
+                if (hasLogFile) {
+                    std::cout << "invalid" << std::endl;
+                    return 255;
+                }
+                logFile = arg;
+                hasLogFile = true;
+            }
+        }
+
+        // Second pass: process the actual values
         for (int i = 1; i < argc; ++i) {
             if (strcmp(argv[i], "-T") == 0) {
-                if (i + 1 >= argc || !safe_stol(argv[++i], timestamp)) {
+                if (!safe_stol(argv[++i], timestamp)) {
                     std::cout << "invalid" << std::endl;
                     return 255;
                 }
             }
             else if (strcmp(argv[i], "-K") == 0) {
-                if (i + 1 >= argc) {
-                    std::cout << "invalid" << std::endl;
-                    return 255;
-                }
                 token = argv[++i];
             }
             else if (strcmp(argv[i], "-E") == 0) {
-                if (i + 1 >= argc || isGuest) {
+                if (isGuest) {
                     std::cout << "invalid" << std::endl;
                     return 255;
                 }
@@ -541,7 +568,7 @@ int main(int argc, char* argv[]) {
                 hasName = true;
             }
             else if (strcmp(argv[i], "-G") == 0) {
-                if (i + 1 >= argc || isEmployee) {
+                if (isEmployee) {
                     std::cout << "invalid" << std::endl;
                     return 255;
                 }
@@ -564,15 +591,18 @@ int main(int argc, char* argv[]) {
                 isLeaving = true;
             }
             else if (strcmp(argv[i], "-R") == 0) {
-                if (i + 1 >= argc || !safe_stoi(argv[++i], roomId)) {
+                if (!safe_stoi(argv[++i], roomId)) {
                     std::cout << "invalid" << std::endl;
                     return 255;
                 }
             }
-            else logFile = argv[i];
+            else if (argv[i] != logFile) {  // Skip if this is the logfile we already processed
+                std::cout << "invalid" << std::endl;
+                return 255;
+            }
         }
 
-        // Additional validation
+        // Final validation
         if (logFile.empty() || token.empty() || !hasName || timestamp == 0 || (!isArrival && !isLeaving)) {
             std::cout << "invalid" << std::endl;
             return 255;
@@ -586,7 +616,8 @@ int main(int argc, char* argv[]) {
         }
 
         return 0;
-    } catch (...) {
+    }
+    catch (...) {
         std::cout << "invalid" << std::endl;
         return 255;
     }
