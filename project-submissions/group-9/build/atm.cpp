@@ -25,8 +25,8 @@ const char* CA_FILE = "ca.crt";
 // Validation patterns
 // const std::regex ACCOUNT_PATTERN("^[a-z0-9_.-]{1,122}$");
 // const std::regex FILENAME_PATTERN("^(?!\\.\\.)(?!\\.)([a-z0-9_.-]{1,127})$");
-const std::regex ACCOUNT_PATTERN("^(?!\\.\\.)(?!\\.)(?!.*['\"])([a-z0-9_.-]{1,122})$"); // Account names must be 1 to 122 characters long without quotes
-const std::regex FILENAME_PATTERN("^(?!\\.\\.)(?!\\.)(?!.*['\"])([_\\-.0-9a-z]{1,127})$"); // Valid file names must be 1 to 127 characters long without quotes
+const std::regex ACCOUNT_PATTERN("^([a-z0-9_.-]{1,122})$"); // Account names must be 1 to 122 characters long without quotes
+const std::regex FILENAME_PATTERN("^(?!\\.{1,2}$)[_\\-.0-9a-z]{1,127}$");
 const std::regex IP_PATTERN("^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\."
                             "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\."
                             "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\."
@@ -35,7 +35,7 @@ const std::regex AMOUNT_PATTERN(R"((0|[1-9]\d{0,9})(\.\d{2})?)");
 
 SSL_CTX* InitClientCTX();
 std::string generateHMAC(const std::string& message);
-void sendRequest(Json::Value& request, const char* ip, int port);
+std::string sendRequest(Json::Value& request, const char* ip, int port);
 bool createCardFile(const std::string& cardFile, int pin);
 std::string readCardFile(const std::string& cardFile);
 int getPIN();
@@ -200,7 +200,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Error: Amount is invalid." << std::endl;
         return 255;
     }
-
+    std::string responsefromServer;
     // Handle account creation
     if (operation == "create") {
         // Use provided card file name if specified; otherwise, default to account name
@@ -230,14 +230,17 @@ int main(int argc, char* argv[]) {
             request["hmac"] = generateHMAC(messageForHMAC);
 
             // Send request to create account at the bank
-            sendRequest(request, ipAddress.c_str(), port);
+            responsefromServer = sendRequest(request, ipAddress.c_str(), port);
 
-            // After successfully creating the account at the bank, create the card file
-            if (createCardFile(cardFile, pin)) {
-                std::cout << "Card file created successfully: " << cardFile << std::endl;
+            if (responsefromServer == "Account created successfully.") {
+                if (createCardFile(cardFile, pin)) {
+                    std::cout << "Card file created successfully: " << cardFile << std::endl;
+                } else {
+                    std::cerr << "Failed to create card file." << std::endl;
+                    return 1;
+                }
             } else {
-                std::cerr << "Failed to create card file." << std::endl;
-                return 1;
+                std::cerr << "Account creation failed." << std::endl;
             }
         }
     } else {
@@ -268,7 +271,7 @@ int main(int argc, char* argv[]) {
         request["hmac"] = generateHMAC(messageForHMAC);
 
         // Send request to the bank server
-        sendRequest(request, ipAddress.c_str(), port);
+        responsefromServer = sendRequest(request, ipAddress.c_str(), port);
     }
 
     return 0;
@@ -391,18 +394,19 @@ bool isValidAmount(const std::string& amountStr) {
     return true;
 }
 
-void sendRequest(Json::Value& request, const char* ip, int port) {
+std::string sendRequest(Json::Value& request, const char* ip, int port) {
     SSL_CTX* ctx;
     SSL* ssl;
     int sock = 0;
     struct sockaddr_in serv_addr;
     char buffer[1024] = {0};
+    std::string return_message = "";
 
     ctx = InitClientCTX(); // Initialize SSL context
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         std::cerr << "Socket creation error" << std::endl;
-        return;
+        return return_message;
     }
 
     serv_addr.sin_family = AF_INET;
@@ -410,12 +414,12 @@ void sendRequest(Json::Value& request, const char* ip, int port) {
 
     if (inet_pton(AF_INET, ip, &serv_addr.sin_addr) <= 0) {
         std::cerr << "Invalid address/ Address not supported" << std::endl;
-        return;
+        return return_message;
     }
 
     if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
         std::cerr << "Connection failed" << std::endl;
-        return;
+        return return_message;
     }
 
     // Create SSL connection
@@ -425,7 +429,7 @@ void sendRequest(Json::Value& request, const char* ip, int port) {
     if (SSL_connect(ssl) <= 0) {
         ERR_print_errors_fp(stderr);
         close(sock);
-        return;
+        return return_message;
     }
 
     // Convert request to JSON string
@@ -447,6 +451,10 @@ void sendRequest(Json::Value& request, const char* ip, int port) {
         // Functioinality bug solved
         // Parse the response JSON
         if (Json::parseFromStream(reader, ss, &response, &errs)) {
+            if (response.isMember("status") && response["status"].asString() == "success" &&
+            response.isMember("message") && response["message"].asString() == "Account created successfully.") {
+                return_message = response["message"].asString();
+            }
             // Iterate over all the fields in the response object
             for (const auto& key : response.getMemberNames()) {
                 // Skip the "hmac" field
@@ -470,4 +478,6 @@ void sendRequest(Json::Value& request, const char* ip, int port) {
     SSL_free(ssl);
     close(sock);
     SSL_CTX_free(ctx);
+
+    return return_message;
 }
