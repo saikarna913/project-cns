@@ -12,6 +12,7 @@
 #include <map>
 #include <mutex>
 #include <csignal>
+#include <regex>
 #include <filesystem> // For checking file existence
 #include "secret_key.h" // Include the header file with the secret key
 #include "encryption.h"
@@ -27,11 +28,13 @@ std::map<std::string, std::string> accountPins;
 int PORT = 3000; // Default port
 std::string authFileName = "bank.auth"; // Default auth file name
 
+const std::regex FILENAME_PATTERN("^(?!\\.{1,2}$)[_\\-.0-9a-z]{1,127}$");
+
 // Function declarations
 std::string generateHMAC(const std::string& message);
 bool verifyHMAC(const std::string& message, const std::string& receivedHmac);
 void readAuthFile(const std::string& authFile);
-void createAccount(const std::string& accountNumber, double initialBalance, const std::string& pin);
+bool createAccount(const std::string& accountNumber, double initialBalance, const std::string& pin);
 bool verifyPin(const std::string& accountNumber, const std::string& inputPin);
 SSL_CTX* InitServerCTX();
 void handleClient(SSL* ssl);
@@ -41,11 +44,29 @@ std::string readCardFile(const std::string& cardFile);
 void sendErrorResponse(SSL* ssl, const std::string& message);
 void sendResponse(SSL* ssl, const Json::Value& responseJson);
 
+bool isValidPort(int port) {
+    return port >= 1024 && port <= 65535;
+}
+
+bool isValidFileName(const std::string& fileName) {
+    return std::regex_match(fileName, FILENAME_PATTERN);
+}
+
 // Main function
 int main(int argc, char* argv[]) {
     // Parse command line arguments
     if (parseCommandLineArguments(argc, argv) != 0) {
         return 255; // Exit on argument parse failure
+    }
+
+    if (!isValidPort(PORT)) {
+        std::cerr << "Error: Invalid PORT number." << std::endl;
+        return 255;
+    }
+
+    if (!isValidFileName(authFileName)) {
+        std::cerr << "Error: Invalid Auth FileName." << std::endl;
+        return 255;
     }
 
     // Check if auth file exists
@@ -172,12 +193,12 @@ void readAuthFile(const std::string& authFile) {
     encryptFile(authFile);
 }
 
-void createAccount(const std::string& accountNumber, double initialBalance, const std::string& pin) {
+bool createAccount(const std::string& accountNumber, double initialBalance, const std::string& pin) {
     std::lock_guard<std::mutex> lock(authFileMutex);
 
     if (accountBalances.find(accountNumber) != accountBalances.end()) {
         std::cerr << "Account already exists." << std::endl;
-        return; // Do not exit, just return
+        return 0; // Do not exit, just return
     }
 
     decryptFile(authFileName);
@@ -196,6 +217,7 @@ void createAccount(const std::string& accountNumber, double initialBalance, cons
     encryptFile(authFileName);
 
     std::cout << "Account " << accountNumber << " created successfully with initial balance: " << initialBalance << std::endl;
+    return 1;
 }
 
 bool verifyPin(const std::string& accountNumber, const std::string& inputPin) {
@@ -287,8 +309,10 @@ void handleClient(SSL* ssl) {
         }
         std::string pin = requestJson["pin"].asString();
         double amount = requestJson["amount"].asDouble();
-
-        createAccount(account, amount, pin); 
+        bool account_created = createAccount(account, amount, pin);
+        if (!account_created) {
+            sendErrorResponse(ssl, "Account already exists");
+        }
         responseJson["status"] = "success";
         responseJson["message"] = "Account created successfully.";
     } else {
