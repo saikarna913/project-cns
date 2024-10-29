@@ -53,5 +53,10 @@ void storeLogEntry(const LogAppendArgs& args, const string& logFilePath);
 string printLogState(const string& logFilePath);
 string printLogRooms(const string& logFilePath, const string& name, const bool isEmployee);
 string printLogTime(const string& logFilePath, const string& name, bool isEmployee);
-
+std::string base64_encode(const std::string &in);
+std::string base64_decode(const std::string &in);
+std::string LINEBYLINE_encrypt(const std::string &plaintext, const std::string &key);
+std::string LINEBYLINE_decrypt(const std::string &ciphertext, const std::string &key);
+void store_key_in_env();
+std::string get_key_from_env();
 #endif // UTILS_H

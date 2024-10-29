@@ -204,7 +204,7 @@ public:
                 builder << "Name" << name
                         << "Role" << role
                         << "Campus" << campus_status
-                        << "Room" << "0"
+                        << "Room" << "-1"
                         << "Time" << 0
                         << "Last_entry" << std::stoi(timestamp)
                         << "entered_rooms" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array  // Initialize empty array
@@ -213,16 +213,16 @@ public:
 
             // Check if room document exists, create if it doesn't
             bsoncxx::stdx::optional<bsoncxx::document::value> maybe_room =
-                rooms_collection.find_one(bsoncxx::builder::stream::document{} << "room_number" << 0 << bsoncxx::builder::stream::finalize);
+                rooms_collection.find_one(bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize);
 
             if (!maybe_room) {
                 // Create a new room document with separate arrays for employees and guests
                 bsoncxx::builder::stream::document room_builder;
                 if (role == "Employee") {
-                    room_builder << "room_number" << 0 << "employees" << bsoncxx::builder::stream::open_array << name << bsoncxx::builder::stream::close_array
+                    room_builder << "room_number" << -1 << "employees" << bsoncxx::builder::stream::open_array << name << bsoncxx::builder::stream::close_array
                                 << "guests" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array; // Empty guests array
                 } else {
-                    room_builder << "room_number" << 0 << "employees" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array
+                    room_builder << "room_number" << -1 << "employees" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array
                                 << "guests" << bsoncxx::builder::stream::open_array << name << bsoncxx::builder::stream::close_array; // Add to guests array
                 }
                 rooms_collection.insert_one(room_builder.view());
@@ -230,7 +230,7 @@ public:
                 // Update the room document to add the person to the correct array
                 if (role == "Employee") {
                     rooms_collection.update_one(
-                        bsoncxx::builder::stream::document{} << "room_number" << 0 << bsoncxx::builder::stream::finalize,
+                        bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize,
                         bsoncxx::builder::stream::document{} << "$addToSet"
                                 << bsoncxx::builder::stream::open_document
                                     << "employees" << name
@@ -238,7 +238,7 @@ public:
                             << bsoncxx::builder::stream::finalize);
                 } else {
                     rooms_collection.update_one(
-                        bsoncxx::builder::stream::document{} << "room_number" << 0 << bsoncxx::builder::stream::finalize,
+                        bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize,
                         bsoncxx::builder::stream::document{} << "$addToSet"
                                 << bsoncxx::builder::stream::open_document
                                     << "guests" << name
@@ -256,93 +256,7 @@ public:
 
             return true;
         }
-        }
-        else{
-             auto total_person_view = maybe_present->view();
-
-            // Check if the roles match
-            std::string log_name_p = total_person_view["log_name"].get_string().value.to_string();
-            if (log_name_p!= log_name) {
-                std::cout << "perso cannot be appended using this log" << std::endl;
-                return false;  // Role mismatch
-            }
-        
-
-
-        // Search for the person in the 'persons' collection by name and role
-        bsoncxx::stdx::optional<bsoncxx::document::value> maybe_person =
-            persons_collection.find_one(bsoncxx::builder::stream::document{}
-                                        << "Name" << name 
-                                        << "Role" << role 
-                                        << bsoncxx::builder::stream::finalize);
-
-        // If the person does not exist
-        if (!maybe_person) {
-            if (!room_id.empty()) {
-                std::cout << "Person is not on campus" << std::endl;
-                return false;
-            }
-
-            // Add new person with attributes
-            bool campus_status = action == "Arrival";
-            if (!campus_status) {
-                std::cout << "Person is not on campus to leave" << std::endl;
-                return false;  // If the action is not Arrival, return false
-            }
-
-            auto builder = bsoncxx::builder::stream::document{};
-            bsoncxx::v_noabi::document::value new_person =
-                builder << "Name" << name
-                        << "Role" << role
-                        << "Campus" << campus_status
-                        << "Room" << "0"
-                        << "Time" << 0
-                        << "Last_entry" << std::stoi(timestamp)
-                        << "entered_rooms" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array  // Initialize empty array
-                        << bsoncxx::builder::stream::finalize;
-            persons_collection.insert_one(new_person.view());
-
-            // Check if room document exists, create if it doesn't
-            bsoncxx::stdx::optional<bsoncxx::document::value> maybe_room =
-                rooms_collection.find_one(bsoncxx::builder::stream::document{} << "room_number" << 0 << bsoncxx::builder::stream::finalize);
-
-            if (!maybe_room) {
-                // Create a new room document with separate arrays for employees and guests
-                bsoncxx::builder::stream::document room_builder;
-                if (role == "Employee") {
-                    room_builder << "room_number" << 0 << "employees" << bsoncxx::builder::stream::open_array << name << bsoncxx::builder::stream::close_array
-                                << "guests" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array; // Empty guests array
-                } else {
-                    room_builder << "room_number" << 0 << "employees" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array
-                                << "guests" << bsoncxx::builder::stream::open_array << name << bsoncxx::builder::stream::close_array; // Add to guests array
-                }
-                rooms_collection.insert_one(room_builder.view());
-            } else {
-                // Update the room document to add the person to the correct array
-                if (role == "Employee") {
-                    rooms_collection.update_one(
-                        bsoncxx::builder::stream::document{} << "room_number" << 0 << bsoncxx::builder::stream::finalize,
-                        bsoncxx::builder::stream::document{} << "$addToSet"
-                                << bsoncxx::builder::stream::open_document
-                                    << "employees" << name
-                                << bsoncxx::builder::stream::close_document
-                            << bsoncxx::builder::stream::finalize);
-                } else {
-                    rooms_collection.update_one(
-                        bsoncxx::builder::stream::document{} << "room_number" << 0 << bsoncxx::builder::stream::finalize,
-                        bsoncxx::builder::stream::document{} << "$addToSet"
-                                << bsoncxx::builder::stream::open_document
-                                    << "guests" << name
-                                << bsoncxx::builder::stream::close_document
-                            << bsoncxx::builder::stream::finalize);
-                }
-            }
-
-            return true;
-        }
-
-        // If the person exists
-        auto person_view = maybe_person->view();
+            auto person_view = maybe_person->view();
 
         // Check if the roles match
         std::string existing_role = person_view["Role"].get_string().value.to_string();
@@ -366,19 +280,19 @@ public:
             } else if (campus_status && room_id.empty()) {
                 std::cout << "Person already on campus" << std::endl;
                 return false;
-            } else if(campus_status && existing_room != "0") {
+            } else if(campus_status && existing_room != "-1") {
                 std::cout << "Person already in another room" << std::endl;
                 return false;
             } else {
                 existing_room = room_id;  // Assign the new room
                 if (!campus_status) {
-                    existing_room = "0";
+                    existing_room = "-1";
                     last_entry = std::stoi(timestamp);
                 }
                 campus_status = true;
 
                 // Add room to entered_rooms array if it's not "0"
-                if (existing_room != "0") {
+                if (existing_room != "-1") {
                     persons_collection.update_one(
                         bsoncxx::builder::stream::document{} << "Name" << name << bsoncxx::builder::stream::finalize,
                         bsoncxx::builder::stream::document{} << "$addToSet"
@@ -425,14 +339,17 @@ public:
             }
         } else if (action == "Leaving") {
             // Person can leave the campus only if they are not in any room (except room 0, which represents being on campus but not in any specific room)
-            if (existing_room != "0" && room_id.empty()) {
+            if (existing_room != "-1" && room_id.empty()) {
                 std::cout << "Person must leave the room before leaving the campus" << std::endl;
                 return false;
             } else if (!campus_status) {
                 std::cout << "Person not on campus" << std::endl;
                 return false;
+            }else if(existing_room == "-1"  && !room_id.empty()){
+                std::cout << "Person is not present in the room" << std::endl;
+                return false;
             } else {
-                if (existing_room != "0") {
+                if (existing_room != "-1") {
                     // If the person is in a room, check if they are leaving from the correct room
                     if (existing_room != room_id) {
                         std::cout << "Person not present in this room" << std::endl;
@@ -459,7 +376,7 @@ public:
                     }
 
                     // Mark that the person is now on campus but not in any specific room
-                    existing_room = "0";
+                    existing_room = "-1";
                 } else {
                     // If the person is already in room 0 (on campus but not in a specific room), they are leaving the campus
                     campus_status = false;  // Mark the person as having left the campus
@@ -471,7 +388,7 @@ public:
                     // Remove the person from the campus (room 0) list
                     if (role == "Employee") {
                         rooms_collection.update_one(
-                            bsoncxx::builder::stream::document{} << "room_number" << 0 << bsoncxx::builder::stream::finalize,
+                            bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize,
                             bsoncxx::builder::stream::document{} << "$pull"
                                 << bsoncxx::builder::stream::open_document
                                     << "employees" << name
@@ -479,7 +396,7 @@ public:
                             << bsoncxx::builder::stream::finalize);
                     } else {
                         rooms_collection.update_one(
-                            bsoncxx::builder::stream::document{} << "room_number" << 0 << bsoncxx::builder::stream::finalize,
+                            bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize,
                             bsoncxx::builder::stream::document{} << "$pull"
                                 << bsoncxx::builder::stream::open_document
                                     << "guests" << name
@@ -501,7 +418,275 @@ public:
                     << "Last_entry" << last_entry
                 << bsoncxx::builder::stream::close_document
             << bsoncxx::builder::stream::finalize);
+        if(room_id.empty() && action == "Leaving"){
+            auto result = p_db.delete_one(maybe_present->view());
+            if (result && result->deleted_count() > 0) {
+                std::cout << "Person deleted successfully.\n";
+                return true;
+            } else {
+                std::cout << "Person not found.\n";
+                return false;
+            }
+        }
+        return true;
+        }
+        else{
+             auto total_person_view = maybe_present->view();
 
+            // Check if the roles match
+            std::string log_name_p = total_person_view["log_name"].get_string().value.to_string();
+            if (log_name_p!= log_name) {
+                std::cout << "person cannot be appended using this log" << std::endl;
+                return false;  // Role mismatch
+            }
+        
+
+
+        // Search for the person in the 'persons' collection by name and role
+        bsoncxx::stdx::optional<bsoncxx::document::value> maybe_person =
+            persons_collection.find_one(bsoncxx::builder::stream::document{}
+                                        << "Name" << name 
+                                        << "Role" << role 
+                                        << bsoncxx::builder::stream::finalize);
+
+        // If the person does not exist
+        if (!maybe_person) {
+            if (!room_id.empty()) {
+                std::cout << "Person is not on campus" << std::endl;
+                return false;
+            }
+
+            // Add new person with attributes
+            bool campus_status = action == "Arrival";
+            if (!campus_status) {
+                std::cout << "Person is not on campus to leave" << std::endl;
+                return false;  // If the action is not Arrival, return false
+            }
+
+            auto builder = bsoncxx::builder::stream::document{};
+            bsoncxx::v_noabi::document::value new_person =
+                builder << "Name" << name
+                        << "Role" << role
+                        << "Campus" << campus_status
+                        << "Room" << "-1"
+                        << "Time" << 0
+                        << "Last_entry" << std::stoi(timestamp)
+                        << "entered_rooms" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array  // Initialize empty array
+                        << bsoncxx::builder::stream::finalize;
+            persons_collection.insert_one(new_person.view());
+
+            // Check if room document exists, create if it doesn't
+            bsoncxx::stdx::optional<bsoncxx::document::value> maybe_room =
+                rooms_collection.find_one(bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize);
+
+            if (!maybe_room) {
+                // Create a new room document with separate arrays for employees and guests
+                bsoncxx::builder::stream::document room_builder;
+                if (role == "Employee") {
+                    room_builder << "room_number" << -1 << "employees" << bsoncxx::builder::stream::open_array << name << bsoncxx::builder::stream::close_array
+                                << "guests" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array; // Empty guests array
+                } else {
+                    room_builder << "room_number" << -1 << "employees" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array
+                                << "guests" << bsoncxx::builder::stream::open_array << name << bsoncxx::builder::stream::close_array; // Add to guests array
+                }
+                rooms_collection.insert_one(room_builder.view());
+            } else {
+                // Update the room document to add the person to the correct array
+                if (role == "Employee") {
+                    rooms_collection.update_one(
+                        bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize,
+                        bsoncxx::builder::stream::document{} << "$addToSet"
+                                << bsoncxx::builder::stream::open_document
+                                    << "employees" << name
+                                << bsoncxx::builder::stream::close_document
+                            << bsoncxx::builder::stream::finalize);
+                } else {
+                    rooms_collection.update_one(
+                        bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize,
+                        bsoncxx::builder::stream::document{} << "$addToSet"
+                                << bsoncxx::builder::stream::open_document
+                                    << "guests" << name
+                                << bsoncxx::builder::stream::close_document
+                            << bsoncxx::builder::stream::finalize);
+                }
+            }
+
+            return true;
+        }
+
+        // If the person exists
+        auto person_view = maybe_person->view();
+
+        // Check if the roles match
+        std::string existing_role = person_view["Role"].get_string().value.to_string();
+        if (existing_role != role) {
+            std::cout << "Role mismatch" << std::endl;
+            return false;  // Role mismatch
+        }
+
+        // Handle actions based on room_id and action
+        std::string existing_room = person_view["Room"].get_string().value.to_string();
+        bool campus_status = person_view["Campus"].get_bool().value;
+        int existing_time = person_view["Time"].get_int32().value;
+        int last_entry = person_view["Last_entry"].get_int32().value;
+        auto entered_rooms_array = person_view["entered_rooms"].get_array().value;
+
+        if (action == "Arrival") {
+            // Person must already be on campus to enter a room
+            if (!campus_status && !room_id.empty()) {
+                std::cout << "Person must already be on campus to enter a room" << std::endl;
+                return false;
+            } else if (campus_status && room_id.empty()) {
+                std::cout << "Person already on campus" << std::endl;
+                return false;
+            } else if(campus_status && existing_room != "-1") {
+                std::cout << "Person already in another room" << std::endl;
+                return false;
+            } else {
+                existing_room = room_id;  // Assign the new room
+                if (!campus_status) {
+                    existing_room = "-1";
+                    last_entry = std::stoi(timestamp);
+                }
+                campus_status = true;
+
+                // Add room to entered_rooms array if it's not "0"
+                if (existing_room != "-1") {
+                    persons_collection.update_one(
+                        bsoncxx::builder::stream::document{} << "Name" << name << bsoncxx::builder::stream::finalize,
+                        bsoncxx::builder::stream::document{} << "$addToSet"
+                            << bsoncxx::builder::stream::open_document
+                                << "entered_rooms" << existing_room
+                            << bsoncxx::builder::stream::close_document
+                        << bsoncxx::builder::stream::finalize);
+                }
+
+                // Check if room document exists, create if it doesn't
+                bsoncxx::stdx::optional<bsoncxx::document::value> maybe_room =
+                    rooms_collection.find_one(bsoncxx::builder::stream::document{} << "room_number" << std::stoi(existing_room) << bsoncxx::builder::stream::finalize);
+                if (!maybe_room) {
+                    // Create a new room document
+                    bsoncxx::builder::stream::document room_builder;
+                    if (role == "Employee") {
+                        room_builder << "room_number" << std::stoi(existing_room) << "employees" << bsoncxx::builder::stream::open_array << name << bsoncxx::builder::stream::close_array
+                                    << "guests" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array; // Empty guests array
+                    } else {
+                        room_builder << "room_number" << std::stoi(existing_room) << "employees" << bsoncxx::builder::stream::open_array << bsoncxx::builder::stream::close_array
+                                    << "guests" << bsoncxx::builder::stream::open_array << name << bsoncxx::builder::stream::close_array; // Add to guests array
+                    }
+                    rooms_collection.insert_one(room_builder.view());
+                } else {
+                    // Update the room document to add the person to the correct array
+                    if (role == "Employee") {
+                        rooms_collection.update_one(
+                            bsoncxx::builder::stream::document{} << "room_number" << std::stoi(existing_room) <<  bsoncxx::builder::stream::finalize,
+                            bsoncxx::builder::stream::document{} << "$addToSet" 
+                                << bsoncxx::builder::stream::open_document 
+                                    << "employees" << name 
+                                << bsoncxx::builder::stream::close_document 
+                            << bsoncxx::builder::stream::finalize);
+                    } else {
+                        rooms_collection.update_one(
+                            bsoncxx::builder::stream::document{} << "room_number" << std::stoi(existing_room) <<  bsoncxx::builder::stream::finalize,
+                            bsoncxx::builder::stream::document{} << "$addToSet" 
+                                << bsoncxx::builder::stream::open_document 
+                                    << "guests" << name 
+                                << bsoncxx::builder::stream::close_document 
+                            << bsoncxx::builder::stream::finalize);
+                    }
+                }
+            }
+        } else if (action == "Leaving") {
+            // Person can leave the campus only if they are not in any room (except room 0, which represents being on campus but not in any specific room)
+            if (existing_room != "-1" && room_id.empty()) {
+                std::cout << "Person must leave the room before leaving the campus" << std::endl;
+                return false;
+            } else if (!campus_status) {
+                std::cout << "Person not on campus" << std::endl;
+                return false;
+            }else if(existing_room == "-1"  && !room_id.empty()){
+                std::cout << "Person is not present in the room" << std::endl;
+                return false;
+            } else {
+                if (existing_room != "-1") {
+                    // If the person is in a room, check if they are leaving from the correct room
+                    if (existing_room != room_id) {
+                        std::cout << "Person not present in this room" << std::endl;
+                        return false;
+                    }
+
+                    // Remove the person from the appropriate array (employees or guests) based on their role
+                    if (role == "Employee") {
+                        rooms_collection.update_one(
+                            bsoncxx::builder::stream::document{} << "room_number" << std::stoi(existing_room) << bsoncxx::builder::stream::finalize,
+                            bsoncxx::builder::stream::document{} << "$pull"
+                                << bsoncxx::builder::stream::open_document
+                                    << "employees" << name
+                                << bsoncxx::builder::stream::close_document
+                            << bsoncxx::builder::stream::finalize);
+                    } else {
+                        rooms_collection.update_one(
+                            bsoncxx::builder::stream::document{} << "room_number" << std::stoi(existing_room) << bsoncxx::builder::stream::finalize,
+                            bsoncxx::builder::stream::document{} << "$pull"
+                                << bsoncxx::builder::stream::open_document
+                                    << "guests" << name
+                                << bsoncxx::builder::stream::close_document
+                            << bsoncxx::builder::stream::finalize);
+                    }
+
+                    // Mark that the person is now on campus but not in any specific room
+                    existing_room = "-1";
+                } else {
+                    // If the person is already in room 0 (on campus but not in a specific room), they are leaving the campus
+                    campus_status = false;  // Mark the person as having left the campus
+                    existing_room = "";  // Empty room field since they're off campus
+
+                    // Adjust the person's time to reflect how long they were on campus
+                    existing_time += std::stoi(timestamp) - last_entry;
+
+                    // Remove the person from the campus (room 0) list
+                    if (role == "Employee") {
+                        rooms_collection.update_one(
+                            bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize,
+                            bsoncxx::builder::stream::document{} << "$pull"
+                                << bsoncxx::builder::stream::open_document
+                                    << "employees" << name
+                                << bsoncxx::builder::stream::close_document
+                            << bsoncxx::builder::stream::finalize);
+                    } else {
+                        rooms_collection.update_one(
+                            bsoncxx::builder::stream::document{} << "room_number" << -1 << bsoncxx::builder::stream::finalize,
+                            bsoncxx::builder::stream::document{} << "$pull"
+                                << bsoncxx::builder::stream::open_document
+                                    << "guests" << name
+                                << bsoncxx::builder::stream::close_document
+                            << bsoncxx::builder::stream::finalize);
+                    }
+                }
+            }
+        }
+
+        // Update the person's document in the collection
+        persons_collection.update_one(
+            bsoncxx::builder::stream::document{} << "Name" << name << bsoncxx::builder::stream::finalize,
+            bsoncxx::builder::stream::document{} << "$set"
+                << bsoncxx::builder::stream::open_document
+                    << "Campus" << campus_status
+                    << "Room" << existing_room
+                    << "Time" << existing_time
+                    << "Last_entry" << last_entry
+                << bsoncxx::builder::stream::close_document
+            << bsoncxx::builder::stream::finalize);
+        if(room_id.empty() && action == "Leaving"){
+            auto result = p_db.delete_one(maybe_present->view());
+            if (result && result->deleted_count() > 0) {
+                std::cout << "Person deleted successfully.\n";
+                return true;
+            } else {
+                std::cout << "Person not found.\n";
+                return false;
+            }
+        }
         return true;
         }
         return false;
@@ -526,7 +711,7 @@ public:
         for (auto&& room_doc : rooms_cursor) {
             int room_number = room_doc["room_number"].get_int32().value;
 
-            if (room_number == 0) {
+            if (room_number == -1) {
                 // Handle the campus list separately
                 auto employees_array = room_doc["employees"].get_array().value;
                 auto guests_array = room_doc["guests"].get_array().value;
@@ -603,13 +788,14 @@ public:
 
         return output;
     }
-    int GetTotalTime(const std::string& name, int current_timestamp) {
+    int GetTotalTime(const std::string& name,const std::string& role, int current_timestamp) {
         mongocxx::database db = get_db();
         mongocxx::collection persons_collection = db["persons"];
 
         // Query the person by name and role
         bsoncxx::stdx::optional<bsoncxx::document::value> maybe_person = persons_collection.find_one(bsoncxx::builder::stream::document{}
                                                 << "Name" << name
+                                                << "Role" << role
                                                 << bsoncxx::builder::stream::finalize);
 
         
@@ -639,7 +825,7 @@ public:
 
         // Search for the person in the 'persons' collection
         bsoncxx::stdx::optional<bsoncxx::document::value> maybe_person =
-            persons_collection.find_one(bsoncxx::builder::stream::document{} << "Name" << name << bsoncxx::builder::stream::finalize);
+            persons_collection.find_one(bsoncxx::builder::stream::document{} << "Name" << name << "Role" << role << bsoncxx::builder::stream::finalize);
 
         // If the person is not found, print nothing and return false
         if (!maybe_person) {
@@ -782,7 +968,7 @@ std::string handle_logread(const json& log_data, ssl::stream<tcp::socket>& ssl_s
                 std::cerr << "Time inconsistent!" << std::endl;
                         return "255";
         }
-        int time_spent = db_handler.GetTotalTime(name, std::stoi(timestamp));
+        int time_spent = db_handler.GetTotalTime(name, role, std::stoi(timestamp));
         std::cout << name << ": " << time_spent << std::endl;
         db_handler.write_last_log_time(std::stoi(timestamp));
         return R"({"total_time": ")" + std::to_string(time_spent) + R"("})";

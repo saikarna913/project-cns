@@ -5,15 +5,17 @@ from cryptography.fernet import Fernet
 import bcrypt
 
 # Define reserved flags globally
-reserved_flags = {"-T", "-K", "-A", "-L", "-E", "-G", "-R", "-B", "-S", "-R", "-T", "-I"}
+reserved_flags = {"-T", "-K", "-A", "-L", "-E", "-G", "-R", "-B", "-S", "-I"}
 
 def is_valid_password(password):
     # Ensure password does not contain hyphens and is not a reserved flag
     return '-' not in password and password not in reserved_flags
 
 def is_valid_filename(filename):
-    # Check if the filename is alphanumeric (with underscores and periods allowed) and not only periods
-    return re.match(r'^[\w.]+$', filename) is not None and not all(char == '.' for char in filename)
+    # Extract the base filename to check its validity
+    base_filename = os.path.basename(filename)
+    # Check if the base filename is alphanumeric (with underscores and periods allowed) and not only periods
+    return re.match(r'^[\w.]+$', base_filename) is not None and not all(char == '.' for char in base_filename)
 
 def main():
     # Check if the correct number of arguments is provided
@@ -25,7 +27,7 @@ def main():
     password = sys.argv[1]
     log_file = sys.argv[2]
 
-    # Validate password and log file name
+    # Validate password and base filename
     if not is_valid_password(password):
         print("Invalid password: hyphens are not allowed in passwords.")
         sys.exit(1)
@@ -33,10 +35,17 @@ def main():
         print("Invalid log file name: must be alphanumeric.")
         sys.exit(1)
 
-    print(f"Arguments received: {sys.argv[1:]}")  # Debugging statement
+    # Normalize the log file path to handle '../' and ensure it’s created in the specified directory
+    log_file_path = os.path.abspath(log_file)  # Convert to absolute path
+    log_dir = os.path.dirname(log_file_path)
+    
+    # Create directories if they don’t exist
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+        print(f"Created directories for {log_file_path}.")
 
-    # Check if the log file already exists and has been set up
-    if os.path.exists(log_file) and os.path.exists('secret.key'):
+    # Check if the log file and secret key already exist
+    if os.path.exists(log_file_path) and os.path.exists('secret.key'):
         print(f"Setup for {log_file} has already been done. Cannot set up again.")
         return  # Exit if the log file has already been set up
 
@@ -61,7 +70,7 @@ def main():
     hashed_password = bcrypt.hashpw(password.encode(), salt)  # Hash the password with bcrypt
     
     # Save the hashed password to the specified log file
-    with open(log_file, 'ab') as lf:  # Append to the file
+    with open(log_file_path, 'ab') as lf:  # Append to the file
         lf.write(hashed_password + b'\n')  # Add a newline for clarity
     
     print("Setup Done. Remember Your Password.")

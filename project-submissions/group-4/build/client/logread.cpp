@@ -13,8 +13,6 @@ namespace net = boost::asio;
 namespace ssl = net::ssl;
 using tcp = net::ip::tcp;
 
-
-
 bool send_read_request(const std::string& query, const std::string& server, const std::string& port) {
     try {
         // Initialize SSL context
@@ -90,7 +88,7 @@ int main(int argc, char* argv[]) {
 
     // Variables to hold parsed values
     std::string token, log_file, name, role, timestamp;
-    bool SBool = false, RBool = false, TBool = false, KBool = false, EBool = false, GBool = false;
+    bool SBool = false, RBool = false, TBool = false, KBool = false, EBool = false, GBool = false, logBool = false;
 
     // Get the server IP from the environment variable
     const char* server_ip = std::getenv("SERVER_IP");
@@ -124,7 +122,7 @@ int main(int argc, char* argv[]) {
         else if (strcmp(argv[i], "-I") == 0) {
             std::cerr << "Unimplemented" << std::endl;
             return false;
-        }else if (strcmp(argv[i], "-K") == 0) {
+        } else if (strcmp(argv[i], "-K") == 0) {
             if (KBool) {
                 std::cerr << "Invalid! Multiple tokens (-K) provided" << std::endl;
                 return 255;
@@ -154,11 +152,13 @@ int main(int argc, char* argv[]) {
             GBool = true;
             name = argv[++i];
             role = "Guest";
-        }else if (strcmp(argv[i], "-I") == 0){
-            std::cout << "Unimplemented yet" << std::endl;
-            return 0;
-        }else {
-            log_file = argv[i];  // Final argument is the log file
+        } else {
+            if (logBool) {
+                std::cerr << "Invalid! Multiple log files provided" << std::endl;
+                return 255;
+            }
+            log_file = argv[i];
+            logBool = true;
         }
     }
 
@@ -168,19 +168,23 @@ int main(int argc, char* argv[]) {
         return 255;
     }
 
+    // Ensure a log file was provided
+    if (!logBool) {
+        std::cerr << "Invalid! Missing log file" << std::endl;
+        return 255;
+    }
+
     // Check for exclusive use of flags -S, -R, -T
     if ((SBool && (RBool || TBool)) || (RBool && TBool)) {
         std::cerr << "Invalid! Only one of -S, -R, -T can be used" << std::endl;
         return 255;
     }
     
-
     // Build the query string based on the provided arguments
     std::string query = R"({"token": ")" + token + R"(", "log_name": ")" + log_file + R"(", )";
     
     // Check which type of query is being made
     if (SBool) {
-        
         query += R"("query_type": "state"})";
     } else if (RBool) {
         query += R"("query_type": "room", "name": ")" + name + R"(", "role": ")" + role + R"("})";
@@ -196,6 +200,5 @@ int main(int argc, char* argv[]) {
         return 255;
     }
 
-   
     return 0;
 }

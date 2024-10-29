@@ -107,7 +107,7 @@ bool isValidAmount(const std::string &input)
 
     // Check if the amount is within the valid range [0.00, 4294967295.99]
     double amount = std::stod(input);
-    return amount >= 0.00 && amount <=MAX_AMOUNT;
+    return amount > 0.00 && amount <=MAX_AMOUNT;
 }
 
 // std::string read_auth_file(const std::string &filename) {
@@ -119,6 +119,7 @@ bool isValidAmount(const std::string &input)
 //         auth_file.close();
 //     } else {
 //         std::cerr << "255- Failed to read auth file." << std::endl;
+//         exit(255);
 //     }
 
 //     return key;
@@ -134,16 +135,57 @@ std::string read_auth_file(const std::string &filename) {
         
         // Check if the file was empty (key remains empty after getline)
         if (key.empty()) {
+            key="empty";
             std::cerr << "255- Auth file is empty." << std::endl;
+            auth_file.close();
+            return key;
+            exit(255); // Exit with code 255
         }
         
-        auth_file.close();
+        //
     } else {
         std::cerr << "255- Failed to read auth file." << std::endl;
+                exit(255); // Exit with code 255
     }
 
     return key;
 }
+
+// std::string read_auth_file(const std::string &filename, SSL *ssl, SSL_CTX *ctx, int sockfd) {
+//     std::ifstream auth_file(filename);
+//     std::string key;
+
+//     if (auth_file.is_open()) {
+//         // Attempt to read the first line from the file
+//         std::getline(auth_file, key);
+        
+//         // Check if the file was empty (key remains empty after getline)
+//         if (key.empty()) {
+//             std::cerr << "255- Auth file is empty." << std::endl;
+//             //SSL_shutdown(ssl);
+//             //SSL_free(ssl);
+//             //close(sockfd);
+//             //SSL_CTX_free(ctx);
+//             //EVP_cleanup();
+//             exit(255); // Exit with code 255
+//         }
+        
+//         auth_file.close();
+//     } else {
+//         std::cerr << "255- Failed to read auth file." << std::endl;
+//         //SSL_shutdown(ssl);
+//         //SSL_free(ssl);
+//         //close(sockfd);
+//         //SSL_CTX_free(ctx);
+//         //EVP_cleanup();
+//         exit(255); // Exit with code 255
+//     }
+
+//     return key;
+// }
+
+
+
 int main()
 {
     // Initialize OpenSSL library
@@ -210,6 +252,9 @@ int main()
         exit(63);
         return 1;
     }
+// std::string client_auth_key = read_auth_file("atm_auth_file.txt");
+
+// new function for reading auth file - kills atm application if not authenticated:
 std::string client_auth_key = read_auth_file("atm_auth_file.txt");
 
     // Send the auth key to the bank
@@ -405,7 +450,7 @@ std::string client_auth_key = read_auth_file("atm_auth_file.txt");
                         std::cin >> amount;
                         if (!isValidAmount(amount))
                         {
-                            std::cout << "255- Invalid amount! Please enter a valid amount in the format: whole.fractional (e.g., 123.45) and within bounds [0.00, 4294967295.99]." << std::endl;
+                            std::cout << "255- Invalid amount! Please enter a valid amount in the format: whole.fractional (e.g., 123.45) and within bounds (0.00, 4294967295.99]." << std::endl;
                             continue;
                         }
                         if (SSL_write(ssl, "DEPOSIT", 7) <= 0 ||
@@ -436,7 +481,7 @@ std::string client_auth_key = read_auth_file("atm_auth_file.txt");
                         std::cin >> amount;
                         if (!isValidAmount(amount))
                         {
-                            std::cout << "Invalid amount! Please enter a valid amount in the format: whole.fractional (e.g., 123.45) and within bounds [0.00, 4294967295.99]." << std::endl;
+                            std::cout << "Invalid amount! Please enter a valid amount in the format: whole.fractional (e.g., 123.45) and within bounds (0.00, 4294967295.99]." << std::endl;
                             continue;
                         }
                         if (SSL_write(ssl, "WITHDRAW", 8) <= 0 ||

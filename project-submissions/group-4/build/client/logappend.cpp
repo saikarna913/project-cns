@@ -131,6 +131,14 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
+void validate_name(const std::string& name) {
+    for (char ch : name) {
+        if (!std::isalpha(ch)) {  // Check if all characters are alphabetic
+            throw std::runtime_error("Error: Name must contain only alphabetic characters (a-z, A-Z) with no spaces.");
+        }
+    }
+}
+
 bool process_logappend(int argc, char* argv[]) {
     std::string timestamp, token, action, name, role, log_file, room_id;
     bool TBool = false;
@@ -138,6 +146,7 @@ bool process_logappend(int argc, char* argv[]) {
     bool RBool = false;
     bool ActionBool = false;
     bool PersonBool = false;
+    bool logBool = false;
 
     // Get the server IP from the environment variable
     const char* server_ip = std::getenv("SERVER_IP");
@@ -147,16 +156,26 @@ bool process_logappend(int argc, char* argv[]) {
     }
 
     // Parse command-line arguments
-    for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "-T") == 0) {
+    for (int i = 0; i < argc; ++i) {
+        if(strcmp(argv[i], "./logappend") == 0){
+            continue;
+        } if (strcmp(argv[i], "-T") == 0) {
             if (TBool) {
                 std::cerr << "Invalid! Two timestamps were provided" << std::endl;
                 return false;
             }
             TBool = true;
             timestamp = argv[++i];
+            if(timestamp[0] )
             // Validate timestamp is a non-negative integer within range
+            for (char c : timestamp) {
+                if (!std::isdigit(static_cast<unsigned char>(c))) {
+                    std::cerr << "Invalid! Timestamp contains non-numeric characters" << std::endl;
+                    return 255;
+                }
+            }
             long ts = std::stol(timestamp);
+            
             if (ts < 1 || ts > 1073741823) {
                 std::cerr << "Invalid! Timestamp out of bounds" << std::endl;
                 return false;
@@ -190,6 +209,19 @@ bool process_logappend(int argc, char* argv[]) {
             PersonBool = true;
             name = argv[++i];
             role = "Employee";
+            try {
+                for (char c : name) {
+                    if (!std::isalpha(static_cast<unsigned char>(c)) || c == '"') {
+                        std::cerr << "Invalid! Name contains non-alphabetic characters" << std::endl;
+                        return 255;
+                    }
+                }
+                validate_name(name);  // Validate the name
+                std::cout << "Valid name: " << name << std::endl;
+            } catch (const std::runtime_error& e) {
+                std::cerr << e.what() << std::endl;
+                return 1;  // Exit with error
+            }
         } else if (strcmp(argv[i], "-G") == 0) {
             if (PersonBool) {
                 std::cerr << "Invalid! Two persons were provided" << std::endl;
@@ -198,6 +230,19 @@ bool process_logappend(int argc, char* argv[]) {
             PersonBool = true;
             name = argv[++i];
             role = "Guest";
+            try {
+                for (char c : name) {
+                    if (!std::isalpha(static_cast<unsigned char>(c)) || c == '"') {
+                        std::cerr << "Invalid! Name contains non-alphabetic characters" << std::endl;
+                        return 255;
+                    }
+                }
+                validate_name(name);  // Validate the name
+                std::cout << "Valid name: " << name << std::endl;
+            } catch (const std::runtime_error& e) {
+                std::cerr << e.what() << std::endl;
+                return 1;  // Exit with error
+            }
         } else if (strcmp(argv[i], "-R") == 0) {
             if (RBool) {
                 std::cerr << "Invalid! Multiple rooms provided" << std::endl;
@@ -212,12 +257,18 @@ bool process_logappend(int argc, char* argv[]) {
                 return false;
             }
         } else {
-            log_file = argv[i];  // Final argument is the log file
+            if(logBool){
+                std::cerr << "Invalid! Give proper command" << std::endl;
+                return false;
+            }
+            log_file = argv[i]; 
+            logBool = true; // Final argument is the log file
         }
     }
 
+
     // Basic validation: Ensure all required flags are set
-    if (!TBool || !KBool || !ActionBool || !PersonBool) {
+    if (!TBool || !KBool || !ActionBool || !PersonBool || !logBool) {
         std::cerr << "Invalid! Missing required arguments" << std::endl;
         return false;
     }

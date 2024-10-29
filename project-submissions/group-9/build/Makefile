@@ -12,8 +12,8 @@ ATM = atm
 BANK = bank
 
 # Source files
-ATM_SRC = atm.cpp
-BANK_SRC = bank.cpp
+ATM_SRC = atm.cpp encryption.cpp
+BANK_SRC = bank.cpp encryption.cpp
 
 # Files to clean
 CLEAN_FILES = *.card *.auth $(ATM) $(BANK)
