@@ -52,6 +52,7 @@ int main(int argc, char* argv[]) {
     int port = DEFAULT_PORT;
     bool operationSpecified = false; // Initialize operationSpecified
     std::unordered_set<std::string> usedParams;
+    std::string authFile = "bank.auth"; // Default auth file path
 
     // Parse command-line arguments
     for (int i = 1; i < argc; i++) {
@@ -182,6 +183,13 @@ int main(int argc, char* argv[]) {
                 return 255;
             }
             usedParams.insert("-p");
+        } else if (arg == "-s" && i + 1 < argc) {
+            if (usedParams.count("-s")) {
+                std::cerr << "Error: Duplicate parameter -s" << std::endl;
+                return 255;
+            }
+            authFile = argv[++i];
+            usedParams.insert("-s");
         } else {
             std::cerr << "Error: Invalid argument" << std::endl;
             return 255;
@@ -192,6 +200,14 @@ int main(int argc, char* argv[]) {
         std::cerr << "Missing required parameters" << std::endl;
         return 255;
     }
+
+    // Check if the auth file exists
+    std::ifstream authFileStream(authFile);
+    if (!authFileStream.is_open()) {
+        std::cerr << "Error: Auth file '" << authFile << "' does not exist." << std::endl;
+        return 255;
+    }
+    authFileStream.close();
 
     // Check for negative amount
     if ((operation == "create" && amount < 10) ||
