@@ -8,6 +8,8 @@ KEY_FILE = secret.key
 # Default build target (run all steps in one go)
 .PHONY: build
 build: clean keyfile executables
+	@echo "Build complete. Starting server..."
+	python3 server.py
 
 # Step 1: Generate the secret.key if it doesn't exist
 .PHONY: keyfile
