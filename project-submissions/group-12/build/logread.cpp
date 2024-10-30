@@ -1,11 +1,12 @@
 #include <bits/stdc++.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-//#include <winsock2.h>
 #include <sys/time.h>
 using namespace std;
 #define PORT 8080
+#define BUFFER_SIZE 1024*1024 // Increase buffer size to 1MB
 #define Secret_key 1234
+
 #include "ciphering.cpp"
 #include "input_validation.cpp"
 
@@ -28,7 +29,6 @@ void print_str(string s){
     }
 }
 bool build_connection(int &sockfd){
-
     struct sockaddr_in server_addr;
 
     // Create TCP socket
@@ -52,7 +52,6 @@ bool build_connection(int &sockfd){
 }
 
 void send_info(string &s, int &sockfd){
-
     string encript_str =str_encription(s);
     send(sockfd, encript_str.c_str(), encript_str.size(), 0);
     cout << "Message sent to server" << endl;
@@ -74,17 +73,19 @@ int Client(string info){
     long long start_time = current_time_in_ms();
 
     send_info(info, sockfd);
-    
-    char recieved_info[1000];
-    int n = read(sockfd, recieved_info, 999);
+
+    char recieved_info[BUFFER_SIZE];
+    int n = read(sockfd, recieved_info, BUFFER_SIZE - 1);
     recieved_info[n] = '\0';
-    string decript_str =str_decription(string(recieved_info));
+    string decript_str = str_decription(string(recieved_info));
     if (n < 0) {
         perror("failed");
         close(sockfd);
         return 255;
     }
+    
     print_str(decript_str);
+
     long long end_time = current_time_in_ms();
 
     // Calculate RTT

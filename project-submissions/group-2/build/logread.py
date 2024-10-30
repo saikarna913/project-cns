@@ -20,14 +20,14 @@ def derive_key_from_password(password: str, salt: bytes) -> bytes:
     return key
 
 # Function to load the hashed password from the log file
-def load_hashed_password(log):
-    with open(log, 'rb') as f:
+def load_hashed_password(log_path):
+    with open(log_path, 'rb') as f:
         hashed_password = f.readline().strip()
     return hashed_password
 
 # Function to authenticate the log based on the token
-def authenticate(log, auth_token):
-    hashed_password = load_hashed_password(log)
+def authenticate(log_path, auth_token):
+    hashed_password = load_hashed_password(log_path)
     if bcrypt.checkpw(auth_token.encode(), hashed_password):
         return True
     else:
@@ -41,14 +41,14 @@ def decrypt_entry(entry, key):
     return decrypted_entry.decode()
 
 # Function to calculate total time spent by an employee/guest in the campus
-def calculate_total_time(log, name, entity_type, key):
+def calculate_total_time(log_path, name, entity_type, key):
     total_time = 0
     in_campus = False
     last_arrival = None
     latest_timestamp = None
 
     try:
-        with open(log, 'r') as f:
+        with open(log_path, 'r') as f:
             lines = f.readlines()[1:]  # Skip the first line (token)
             for line in lines:
                 decrypted_entry = decrypt_entry(line.strip(), key)
@@ -84,13 +84,13 @@ def calculate_total_time(log, name, entity_type, key):
     return total_time
 
 # Function to read the current state of the campus
-def read_state(log, key):
+def read_state(log_path, key):
     employees = []
     guests = []
     rooms = {}
 
     try:
-        with open(log, 'r') as f:
+        with open(log_path, 'r') as f:
             lines = f.readlines()[1:]  # Skip the first line (token)
             for line in lines:
                 decrypted_entry = decrypt_entry(line.strip(), key)
@@ -137,11 +137,11 @@ def print_state(employees, guests, rooms):
         print(f"{room_id}: {','.join(sorted(rooms[room_id]))}")
 
 # Function to list all rooms entered by an employee or guest
-def list_rooms(log, name, entity_type, key):
+def list_rooms(log_path, name, entity_type, key):
     rooms_visited = []
 
     try:
-        with open(log, 'r') as f:
+        with open(log_path, 'r') as f:
             lines = f.readlines()[1:]  # Skip the first line (token)
             for line in lines:
                 decrypted_entry = decrypt_entry(line.strip(), key)
@@ -159,12 +159,12 @@ def list_rooms(log, name, entity_type, key):
     return rooms_visited
 
 # Function to list rooms occupied by all specified employees and guests at the same time
-def list_common_rooms(log, names, key):
+def list_common_rooms(log_path, names, key):
     room_occupancy = {}
     common_rooms = set()
 
     try:
-        with open(log, 'r') as f:
+        with open(log_path, 'r') as f:
             lines = f.readlines()[1:]  # Skip the first line (token)
             for line in lines:
                 decrypted_entry = decrypt_entry(line.strip(), key)
@@ -204,61 +204,59 @@ def process_args(args=None):
     parser.add_argument("log", help="Path to the log file")
 
     args = parser.parse_args(args)
+    log_path = os.path.abspath(args.log)  # Convert log file path to an absolute path
 
-    if not authenticate(args.log, args.K):
+
+    # Check if log file exists
+    if not os.path.exists(log_path):
+        print(f"Error: Log file '{args.log}' does not exist.")
+        return
+    
+    if not authenticate(log_path, args.K):
         print("Integrity violation")
         return
 
-    hashed_password = load_hashed_password(args.log)
+    hashed_password = load_hashed_password(log_path)
     salt = hashed_password[:16]  # Use the first 16 bytes of the hashed password as the salt
     key = derive_key_from_password(args.K, salt)
 
-    # Process -S: Print state of the campus
+    # Process the different arguments based on the provided flags
     if args.S:
-        employees, guests, rooms = read_state(args.log, key)
+        employees, guests, rooms = read_state(log_path, key)
         print_state(employees, guests, rooms)
 
-    # Process -T: Calculate total time for employee or guest
     if args.T:
         if args.E:
-            total_time = calculate_total_time(args.log, args.E[0], "employee", key)
+            total_time = calculate_total_time(log_path, args.E[0], "employee", key)
         elif args.G:
-            total_time = calculate_total_time(args.log, args.G[0], "guest", key)
+            total_time = calculate_total_time(log_path, args.G[0], "guest", key)
         else:
             print("Error: Specify either -E for employee or -G for guest.")
             return
-
         if total_time > 0:
             print(total_time)
 
-    # Process -R: List rooms entered by employee or guest
     if args.R:
         if args.E:
-            rooms_visited = list_rooms(args.log, args.E[0], "employee", key)
+            rooms_visited = list_rooms(log_path, args.E[0], "employee", key)
         elif args.G:
-            rooms_visited = list_rooms(args.log, args.G[0], "guest", key)
+            rooms_visited = list_rooms(log_path, args.G[0], "guest", key)
         else:
             print("Error: Specify either -E for employee or -G for guest.")
             return
+        print(",".join(sorted(set(rooms_visited), key=int)))
 
-        if rooms_visited:
-            print(",".join(rooms_visited))
-
-    # Process -I: List common rooms occupied by all specified employees and guests
     if args.I:
         names = []
         if args.E:
             names.extend(args.E)
-        if args.G:
+        elif args.G:
             names.extend(args.G)
-
-        if not names:
-            print("Error: Specify at least one -E for employee or -G for guest.")
+        else:
+            print("Error: Specify either -E for employee or -G for guest.")
             return
-
-        common_rooms = list_common_rooms(args.log, names, key)
-        if common_rooms:
-            print(",".join(common_rooms))
+        common_rooms = list_common_rooms(log_path, names, key)
+        print(",".join(common_rooms))
 
 if __name__ == "__main__":
     process_args()

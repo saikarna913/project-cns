@@ -68,36 +68,39 @@ std::string aesEncrypt(const std::string& plaintext, const std::string& mixedKey
 
 // AES decryption function using EVP
 std::string aesDecrypt(const std::string& ciphertext, const std::string& mixedKey) {
+    if (ciphertext.size() <= EVP_MAX_IV_LENGTH) {
+        throw std::runtime_error("Ciphertext too short, possibly missing IV or corrupted.");
+    }
+
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) throw std::runtime_error("Failed to create cipher context");
+
     std::string plaintext(ciphertext.size(), '\0');
-    int len = 0;
-
-    // Extract the IV from the ciphertext
     unsigned char iv[EVP_MAX_IV_LENGTH];
-    memcpy(iv, ciphertext.data(), sizeof(iv)); // Copy the IV from the start of the ciphertext
+    memcpy(iv, ciphertext.data(), EVP_MAX_IV_LENGTH); // Extract IV from the start
 
-    // Initialize decryption
-    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), nullptr, reinterpret_cast<const unsigned char*>(mixedKey.data()), iv) != 1) {
+    int len = 0;
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), nullptr, 
+                           reinterpret_cast<const unsigned char*>(mixedKey.data()), iv) != 1) {
         EVP_CIPHER_CTX_free(ctx);
         throw std::runtime_error("Failed to initialize decryption");
     }
 
-    // Decrypt the ciphertext (excluding the IV)
-    if (EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char*>(&plaintext[0]), &len,
-                          reinterpret_cast<const unsigned char*>(&ciphertext[sizeof(iv)]), ciphertext.size() - sizeof(iv)) != 1) {
+    if (EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char*>(&plaintext[0]), &len, 
+                          reinterpret_cast<const unsigned char*>(&ciphertext[EVP_MAX_IV_LENGTH]), 
+                          ciphertext.size() - EVP_MAX_IV_LENGTH) != 1) {
         EVP_CIPHER_CTX_free(ctx);
         throw std::runtime_error("Failed to decrypt data");
     }
 
     int plaintext_len = len;
-
     if (EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(&plaintext[0]) + len, &len) != 1) {
         EVP_CIPHER_CTX_free(ctx);
-        throw std::runtime_error("Failed to finalize decryption");
+        throw std::runtime_error("Failed to finalize decryption - possible padding error or corrupt ciphertext.");
     }
 
     plaintext_len += len;
-    plaintext.resize(plaintext_len); // Resize to the actual length of the plaintext
+    plaintext.resize(plaintext_len); // Resize to the actual length of plaintext
     EVP_CIPHER_CTX_free(ctx);
     return plaintext;
 }

@@ -135,7 +135,7 @@ def process_args(args=None):
 
     args = parser.parse_args(args)
 
-    if not ( 0 < args.T <= 1073741823 ):
+    if not (0 < args.T <= 1073741823):
         raise ValueError("Timestamp cannot be zero.")
 
     # Ensure that the room ID is an integer between 0 and 1,073,741,823
@@ -147,7 +147,7 @@ def process_args(args=None):
                 raise ValueError("Invalid Room Number")
         except ValueError:
             raise ValueError("Invalid Room Number")
- 
+
     # Ensure only one of -E or -G is specified
     if (args.E and args.G) or (not args.E and not args.G):
         raise ValueError("Specify either -E for employee or -G for guest, not both.")
@@ -158,24 +158,28 @@ def process_args(args=None):
     if args.A and args.L:
         raise ValueError("Specify either -A for arrival or -L for departure, not both.")
     
-    #Ensure that args.E or args.G is alphabetical (a-z, A-Z)
-    if args.E:
-        if not args.E.isalpha():
-            raise ValueError("Invalid Employee Name.")
-    if args.G:
-        if not args.G.isalpha():
-            raise ValueError("Invalid Guest Name.")
+    # Ensure that args.E or args.G is alphabetical (a-z, A-Z)
+    if args.E and not args.E.isalpha():
+        raise ValueError("Invalid Employee Name.")
+    if args.G and not args.G.isalpha():
+        raise ValueError("Invalid Guest Name.")
     
-    if not authenticate(args.log, args.K):
+    # Normalize the log path and create directories if necessary
+    log_path = os.path.abspath(args.log)
+    log_dir = os.path.dirname(log_path)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    if not authenticate(log_path, args.K):
         raise ValueError("Authentication failed.")
 
-    hashed_password = load_hashed_password(args.log)
+    hashed_password = load_hashed_password(log_path)
     salt = hashed_password[:16]  # Use the first 16 bytes of the hashed password as the salt
     key = derive_key_from_password(args.K, salt)
 
     user = args.E if args.E else args.G
     role = "employee" if args.E else "guest"
-    is_valid, last_event = validate_log(args.log, args.T, user, role, key)
+    is_valid, last_event = validate_log(log_path, args.T, user, role, key)
 
     if not is_valid:
         raise ValueError("Invalid log state.")
@@ -184,10 +188,8 @@ def process_args(args=None):
         last_event_type, last_room = last_event[0], last_event[1]
         if last_event_type == 'arrival':
             current_room = last_room
-        elif last_event_type == 'departure' and last_room != 'campus':
-            current_room = 'campus'
-        else:
-            current_room = 'None'
+        elif last_event_type == 'departure':
+            current_room = 'None' if last_room == 'campus' else 'campus'
     else:
         current_room = 'None'
 
@@ -198,16 +200,17 @@ def process_args(args=None):
 
     event = f"{role}, {user}, {'arrival' if args.A else 'departure'}, {args.R if args.R is not None else 'campus'}"
 
-    append_log(args.log, args.T, event, key)
+    append_log(log_path, args.T, event, key)
     print("Log entry added successfully.")
 
 if __name__ == "__main__":
     try:
-        if "-B" in os.sys.argv:
-            batch_index = os.sys.argv.index("-B") + 1
-            batch_file = os.sys.argv[batch_index]
+        if "-B" in sys.argv:
+            batch_index = sys.argv.index("-B") + 1
+            batch_file = sys.argv[batch_index]
             process_batch_file(batch_file)
         else:
             process_args()
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"invalid: {e}")
+        sys.exit(255)

@@ -166,8 +166,16 @@ bool process_logappend(int argc, char* argv[]) {
             }
             TBool = true;
             timestamp = argv[++i];
+            if(timestamp[0] )
             // Validate timestamp is a non-negative integer within range
+            for (char c : timestamp) {
+                if (!std::isdigit(static_cast<unsigned char>(c))) {
+                    std::cerr << "Invalid! Timestamp contains non-numeric characters" << std::endl;
+                    return 255;
+                }
+            }
             long ts = std::stol(timestamp);
+            
             if (ts < 1 || ts > 1073741823) {
                 std::cerr << "Invalid! Timestamp out of bounds" << std::endl;
                 return false;
@@ -202,6 +210,12 @@ bool process_logappend(int argc, char* argv[]) {
             name = argv[++i];
             role = "Employee";
             try {
+                for (char c : name) {
+                    if (!std::isalpha(static_cast<unsigned char>(c)) || c == '"') {
+                        std::cerr << "Invalid! Name contains non-alphabetic characters" << std::endl;
+                        return 255;
+                    }
+                }
                 validate_name(name);  // Validate the name
                 std::cout << "Valid name: " << name << std::endl;
             } catch (const std::runtime_error& e) {
@@ -217,6 +231,12 @@ bool process_logappend(int argc, char* argv[]) {
             name = argv[++i];
             role = "Guest";
             try {
+                for (char c : name) {
+                    if (!std::isalpha(static_cast<unsigned char>(c)) || c == '"') {
+                        std::cerr << "Invalid! Name contains non-alphabetic characters" << std::endl;
+                        return 255;
+                    }
+                }
                 validate_name(name);  // Validate the name
                 std::cout << "Valid name: " << name << std::endl;
             } catch (const std::runtime_error& e) {

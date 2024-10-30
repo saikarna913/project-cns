@@ -12,6 +12,7 @@
 #include <map>
 #include <mutex>
 #include <csignal>
+#include <regex>
 #include <filesystem> // For checking file existence
 #include "secret_key.h" // Include the header file with the secret key
 #include "encryption.h"
@@ -27,22 +28,45 @@ std::map<std::string, std::string> accountPins;
 int PORT = 3000; // Default port
 std::string authFileName = "bank.auth"; // Default auth file name
 
+const std::regex FILENAME_PATTERN("^(?!\\.{1,2}$)[_\\-.0-9a-z]{1,127}$");
+
 // Function declarations
 std::string generateHMAC(const std::string& message);
 bool verifyHMAC(const std::string& message, const std::string& receivedHmac);
 void readAuthFile(const std::string& authFile);
-void createAccount(const std::string& accountNumber, double initialBalance, const std::string& pin);
+bool createAccount(const std::string& accountNumber, double initialBalance, const std::string& pin);
 bool verifyPin(const std::string& accountNumber, const std::string& inputPin);
 SSL_CTX* InitServerCTX();
 void handleClient(SSL* ssl);
 void signalHandler(int signum);
 int parseCommandLineArguments(int argc, char* argv[]);
+std::string readCardFile(const std::string& cardFile);
+void sendErrorResponse(SSL* ssl, const std::string& message);
+void sendResponse(SSL* ssl, const Json::Value& responseJson);
+
+bool isValidPort(int port) {
+    return port >= 1024 && port <= 65535;
+}
+
+bool isValidFileName(const std::string& fileName) {
+    return std::regex_match(fileName, FILENAME_PATTERN);
+}
 
 // Main function
 int main(int argc, char* argv[]) {
     // Parse command line arguments
     if (parseCommandLineArguments(argc, argv) != 0) {
         return 255; // Exit on argument parse failure
+    }
+
+    if (!isValidPort(PORT)) {
+        std::cerr << "Error: Invalid PORT number." << std::endl;
+        return 255;
+    }
+
+    if (!isValidFileName(authFileName)) {
+        std::cerr << "Error: Invalid Auth FileName." << std::endl;
+        return 255;
     }
 
     // Check if auth file exists
@@ -169,12 +193,12 @@ void readAuthFile(const std::string& authFile) {
     encryptFile(authFile);
 }
 
-void createAccount(const std::string& accountNumber, double initialBalance, const std::string& pin) {
+bool createAccount(const std::string& accountNumber, double initialBalance, const std::string& pin) {
     std::lock_guard<std::mutex> lock(authFileMutex);
 
     if (accountBalances.find(accountNumber) != accountBalances.end()) {
         std::cerr << "Account already exists." << std::endl;
-        return; // Do not exit, just return
+        return 0; // Do not exit, just return
     }
 
     decryptFile(authFileName);
@@ -193,6 +217,7 @@ void createAccount(const std::string& accountNumber, double initialBalance, cons
     encryptFile(authFileName);
 
     std::cout << "Account " << accountNumber << " created successfully with initial balance: " << initialBalance << std::endl;
+    return 1;
 }
 
 bool verifyPin(const std::string& accountNumber, const std::string& inputPin) {
@@ -242,69 +267,131 @@ void handleClient(SSL* ssl) {
     char buffer[1024] = {0};
     int bytes = SSL_read(ssl, buffer, sizeof(buffer));
 
-    if (bytes > 0) {
-        std::string requestMessage(buffer, bytes);
+    if (bytes <= 0) {
+        std::cerr << "Failed to read from client." << std::endl;
+        return; // Exit function if reading fails
+    }
 
-        // Parse JSON request
-        Json::Value requestJson;
-        Json::Reader reader;
-        if (reader.parse(requestMessage, requestJson)) {
-            std::string receivedHmac = requestJson["hmac"].asString();
-            requestJson.removeMember("hmac");
+    std::string requestMessage(buffer, bytes);
+    Json::Value requestJson;
+    Json::Reader reader;
 
-            std::string messageForHMAC = Json::writeString(Json::StreamWriterBuilder(), requestJson);
-            if (verifyHMAC(messageForHMAC, receivedHmac)) {
-                std::cout << "HMAC verification successful." << std::endl;
-                std::string operation = requestJson["operation"].asString();
-                std::string account = requestJson["account"].asString();
-                std::string pin = requestJson["pin"].asString();
-                double amount = requestJson.isMember("amount") ? requestJson["amount"].asDouble() : 0.0;
+    if (!reader.parse(requestMessage, requestJson)) {
+        std::cerr << "Failed to parse JSON request." << std::endl;
+        sendErrorResponse(ssl, "Invalid JSON format");
+        return;
+    }
 
-                Json::Value responseJson;
+    std::string receivedHmac = requestJson["hmac"].asString();
+    requestJson.removeMember("hmac");
 
-                if (operation == "create") {
-                    createAccount(account, amount, pin);
+    if (!verifyHMAC(Json::writeString(Json::StreamWriterBuilder(), requestJson), receivedHmac)) {
+        std::cerr << "HMAC verification failed." << std::endl;
+        sendErrorResponse(ssl, "HMAC verification failed");
+        return;
+    }
+
+    // Validate required fields
+    if (!requestJson.isMember("operation") || !requestJson.isMember("account")) {
+        sendErrorResponse(ssl, "Missing required fields: operation or account");
+        return;
+    }
+
+    std::string operation = requestJson["operation"].asString();
+    std::string account = requestJson["account"].asString();
+
+    Json::Value responseJson;
+
+    if (operation == "create") {
+        if (!requestJson.isMember("pin") || !requestJson.isMember("amount")) {
+            sendErrorResponse(ssl, "Missing required field: pin or amount");
+            return;
+        }
+        std::string pin = requestJson["pin"].asString();
+        double amount = requestJson["amount"].asDouble();
+        bool account_created = createAccount(account, amount, pin);
+        if (!account_created) {
+            sendErrorResponse(ssl, "Account already exists");
+        }
+        responseJson["status"] = "success";
+        responseJson["message"] = "Account created successfully.";
+    } else {
+        if (!requestJson.isMember("cardFile")) {
+            sendErrorResponse(ssl, "Missing required field: cardFile");
+            return;
+        }
+        
+        std::string cardFile = requestJson["cardFile"].asString();
+        decryptFile(cardFile);
+        std::string pin = readCardFile(cardFile);
+        encryptFile(cardFile);
+
+        if (operation == "deposit" || operation == "withdraw" || operation == "get_balance") {
+            if (!requestJson.isMember("amount") && (operation == "deposit" || operation == "withdraw")) {
+                sendErrorResponse(ssl, "Missing required field: amount");
+                return;
+            }
+
+            if (verifyPin(account, pin)) {
+                if (operation == "deposit") {
+                    double amount = requestJson["amount"].asDouble();
+                    // Update account balance logic
+                    accountBalances[account] += amount; 
                     responseJson["status"] = "success";
-                    responseJson["message"] = "Account created successfully.";
-                } else if (operation == "deposit" || operation == "withdraw" || operation == "get_balance") {
-                    if (verifyPin(account, pin)) {
-                        if (operation == "deposit") {
-                            accountBalances[account] += amount;
-                            responseJson["status"] = "success";
-                            responseJson["message"] = "Deposit successful.";
-                        } else if (operation == "withdraw") {
-                            if (accountBalances[account] >= amount) {
-                                accountBalances[account] -= amount;
-                                responseJson["status"] = "success";
-                                responseJson["message"] = "Withdrawal successful.";
-                            } else {
-                                responseJson["status"] = "failed";
-                                responseJson["message"] = "Insufficient balance.";
-                            }
-                        } else if (operation == "get_balance") {
-                            responseJson["status"] = "success";
-                            responseJson["balance"] = accountBalances[account];
-                        }
+                    responseJson["message"] = "Deposit successful.";
+                } else if (operation == "withdraw") {
+                    double amount = requestJson["amount"].asDouble();
+                    // Withdrawal logic
+                    if (accountBalances[account] >= amount) {
+                        accountBalances[account] -= amount;
+                        responseJson["status"] = "success";
                     } else {
                         responseJson["status"] = "failed";
-                        responseJson["message"] = "Invalid PIN.";
                     }
-                } else {
-                    responseJson["status"] = "failed";
-                    responseJson["message"] = "Invalid operation.";
+                } else if (operation == "get_balance") {
+                    // Send balance
+                    responseJson["balance"] = accountBalances[account];
                 }
-
-                // Send JSON response
-                Json::StreamWriterBuilder writer;
-                std::string responseMessage = Json::writeString(writer, responseJson);
-                SSL_write(ssl, responseMessage.c_str(), responseMessage.size());
             } else {
-                std::cerr << "HMAC verification failed." << std::endl;
+                sendErrorResponse(ssl, "Invalid PIN.");
+                return;
             }
         } else {
-            std::cerr << "Failed to parse JSON request." << std::endl;
+            sendErrorResponse(ssl, "Invalid operation.");
+            return;
         }
     }
+
+    // Send JSON response
+    sendResponse(ssl, responseJson);
+}
+
+void sendErrorResponse(SSL* ssl, const std::string& message) {
+    Json::Value responseJson;
+    responseJson["status"] = "failed";
+    responseJson["message"] = message;
+    sendResponse(ssl, responseJson);
+}
+
+void sendResponse(SSL* ssl, const Json::Value& responseJson) {
+    Json::StreamWriterBuilder writer;
+    std::string responseMessage = Json::writeString(writer, responseJson);
+    SSL_write(ssl, responseMessage.c_str(), responseMessage.size());
+}
+
+std::string readCardFile(const std::string& cardFile) {
+    // decryptFile(cardFile); // Decrypt the file before reading
+    std::ifstream infile(cardFile);
+    std::string line;
+
+    if (infile.is_open()) {
+        std::getline(infile, line); // Read the PIN from the card file
+        infile.close();
+        return line;
+    }
+    std::cerr << "Failed to open card file after decryption." << std::endl;
+    // encryptFile(cardFile); // Re-encrypt the file if read fails
+    return "";
 }
 
 void signalHandler(int signum) {

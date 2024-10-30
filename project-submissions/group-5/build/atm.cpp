@@ -240,8 +240,6 @@ int main(int argc, char *argv[]) {
                     std::cerr << "Invalid auth name." << std::endl;
                     return 255;
                 }
-                cardFile = optarg;
-                break;
                 authFile = optarg;
                 break;
             case 'i':
@@ -265,7 +263,7 @@ int main(int argc, char *argv[]) {
                 account = optarg;
                 break;
             case 'n':
-                if (!isPositiveDecimal(trimLeadingSpaces(optarg))) {
+                if (!isPositiveDecimal(trimLeadingSpaces(optarg)) || !isValidCurrencyAmount(trimLeadingSpaces(optarg))) {
                     std::cerr << "Invalid initial amount." << std::endl;
                     return 255;
                 }
@@ -273,7 +271,7 @@ int main(int argc, char *argv[]) {
                 balance = optarg;
                 break;
             case 'd':
-                if (!isPositiveDecimal(trimLeadingSpaces(optarg))) {
+                if (!isPositiveDecimal(trimLeadingSpaces(optarg)) || !isValidCurrencyAmount(trimLeadingSpaces(optarg))) {
                     std::cerr << "Invalid deposit amount." << std::endl;
                     return 255;
                 }
@@ -281,7 +279,7 @@ int main(int argc, char *argv[]) {
                 balance = optarg;
                 break;
             case 'w':
-                if (!isPositiveDecimal(trimLeadingSpaces(optarg))) {
+                if (!isPositiveDecimal(trimLeadingSpaces(optarg)) || !isValidCurrencyAmount(trimLeadingSpaces(optarg))) {
                     std::cerr << "Invalid withdraw amount." << std::endl;
                     return 255;
                 }
