@@ -186,7 +186,10 @@ def process_args(args=None):
 
     if last_event:
         last_event_type, last_room = last_event[0], last_event[1]
-        current_room = last_room if last_event_type == 'arrival' else 'campus'
+        if last_event_type == 'arrival':
+            current_room = last_room
+        elif last_event_type == 'departure':
+            current_room = 'None' if last_room == 'campus' else 'campus'
     else:
         current_room = 'None'
 
